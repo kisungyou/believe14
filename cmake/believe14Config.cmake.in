@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+set(BELIEVE14_USE_SYSTEM_EIGEN @BELIEVE14_CONFIG_USE_SYSTEM_EIGEN@)
+if(BELIEVE14_USE_SYSTEM_EIGEN)
+  find_dependency(Eigen3 REQUIRED CONFIG)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/believe14Targets.cmake")

@@ -1,0 +1,12 @@
+Package: believe14
+Type: Package
+Title: Concise Summary of What the Package Does
+Version: 0.0.1
+Authors@R: person("Kisung", "You", role = c("aut", "cre"), email =
+        "kisung.you@outlook.com")
+Description: More about what it does (maybe more than one line).
+License: GPL (>= 2)
+Encoding: UTF-8
+RoxygenNote: 7.3.3
+Imports: Rcpp (>= 1.1.1)
+LinkingTo: Rcpp, RcppEigen
