@@ -6,4 +6,5 @@
 #include <believe14/utilities/util_checker.hpp>
 #include <believe14/utilities/util_converter.hpp>
 #include <believe14/utilities/util_distance.hpp>
+#include <believe14/utilities/util_kernel.hpp>
 #include <believe14/utilities/util_shortest.hpp>
