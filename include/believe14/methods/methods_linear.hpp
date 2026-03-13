@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include <believe14/core/config.hpp>
+#include <believe14/utilities/util_checker.hpp>
 
 namespace believe14 {
 
@@ -14,8 +15,8 @@ struct MethodResult {
 };
 
 inline MethodResult pca(const Eigen::Ref<const Eigen::MatrixXd>& X, Eigen::Index ndim) {
-  if (X.rows() == 0 || X.cols() == 0) {
-    throw std::invalid_argument("X must have at least one row and one column.");
+  if (!utilities::check_array2d(X)) {
+    throw std::invalid_argument("* pca: an input matrix is not a valid array");
   }
   if (ndim <= 0) {
     throw std::invalid_argument("ndim must be a positive integer.");
