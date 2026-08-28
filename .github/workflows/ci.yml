@@ -1,0 +1,188 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m scripts.verify_release --check-clean
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev,docs]"
+      - run: python -m ruff format --check .
+      - run: python -m ruff check .
+      - run: python -m mypy
+      - run: >-
+          python -m pytest --cov=believe14 --cov-report=term-missing
+          --cov-fail-under=90
+
+  distribution:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      wheel: ${{ steps.release.outputs.wheel }}
+      sdist: ${{ steps.release.outputs.sdist }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - id: release
+        run: python -m scripts.release_info --github-output "$GITHUB_OUTPUT"
+      - run: python -m scripts.verify_release --check-clean
+      - run: python -m pip install --upgrade pip build twine
+      - run: python -m build
+      - run: >-
+          python -m twine check --strict
+          "dist/${{ steps.release.outputs.wheel }}"
+          "dist/${{ steps.release.outputs.sdist }}"
+      - run: python -m scripts.check_distribution --dist-dir dist
+      - run: >-
+          python -m scripts.artifact_hashes write --manifest SHA256SUMS
+          "dist/${{ steps.release.outputs.wheel }}"
+          "dist/${{ steps.release.outputs.sdist }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: believe14-distributions-${{ github.sha }}
+          path: |
+            dist/${{ steps.release.outputs.wheel }}
+            dist/${{ steps.release.outputs.sdist }}
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: believe14-checksums-${{ github.sha }}
+          path: SHA256SUMS
+          if-no-files-found: error
+
+  platforms:
+    needs: distribution
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          name: believe14-distributions-${{ github.sha }}
+          path: dist
+      - run: python -m pip install --upgrade pip pytest pytest-cov
+      - run: >-
+          python -m pip install
+          "dist/${{ needs.distribution.outputs.wheel }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+      - run: python -m pytest
+      - run: python -m pip uninstall --yes believe14
+      - run: >-
+          python -m pip install
+          "dist/${{ needs.distribution.outputs.sdist }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+
+  minimum-dependencies:
+    needs: distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          name: believe14-distributions-${{ github.sha }}
+          path: dist
+      - run: python -m pip install --upgrade pip
+      - run: >-
+          python -m pip install
+          numpy==2.5.1 scipy==1.18.0 scikit-learn==1.9.0
+          pytest==8.4.0 pytest-cov==6.2.0
+      - run: >-
+          python -m pip install --no-deps
+          "dist/${{ needs.distribution.outputs.wheel }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+      - run: python -m pytest
+      - run: python -m pip uninstall --yes believe14
+      - run: >-
+          python -m pip install --no-deps
+          "dist/${{ needs.distribution.outputs.sdist }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+
+  documentation:
+    needs: distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          name: believe14-distributions-${{ github.sha }}
+          path: dist
+      - run: python -m pip install --upgrade pip
+      - run: >-
+          python -m pip install
+          "dist/${{ needs.distribution.outputs.wheel }}[docs]"
+      - run: python -I -m sphinx -W -b html docs docs/_build/html
+        env:
+          BELIEVE14_DOCS_REQUIRE_WHEEL: "1"
+      - run: python -I tools/check_docs_html.py docs/_build/html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: believe14-documentation-${{ github.sha }}
+          path: docs/_build/html
+          if-no-files-found: error
+
+  deploy-documentation:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [quality, distribution, platforms, minimum-dependencies, documentation]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: believe14-documentation-${{ github.sha }}
+          path: site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use believe14, cite the software and the primary papers for the methods used."
+title: "believe14: paper-first dimensionality reduction and estimation"
+type: software
+abstract: >-
+  A paper-first Python library of dimensionality-reduction and
+  intrinsic-dimension-estimation methods with explicit numerical contracts.
+authors:
+  - family-names: You
+    given-names: Kisung
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/kisungyou/believe14"
+url: "https://kisungyou.github.io/believe14/"
+keywords:
+  - dimensionality reduction
+  - manifold learning
+  - intrinsic dimension
+  - machine learning

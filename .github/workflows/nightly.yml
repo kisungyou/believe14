@@ -1,0 +1,53 @@
+name: Nightly scientific validation
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  research-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - id: release
+        run: python -m scripts.release_info --github-output "$GITHUB_OUTPUT"
+      - run: python -m scripts.verify_release --check-clean
+      - run: python -m pip install --upgrade pip build twine pytest pytest-cov
+      - run: python -m build
+      - run: >-
+          python -m twine check --strict
+          "dist/${{ steps.release.outputs.wheel }}"
+          "dist/${{ steps.release.outputs.sdist }}"
+      - run: python -m scripts.check_distribution --dist-dir dist
+      - run: >-
+          python -m pip install
+          "dist/${{ steps.release.outputs.wheel }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ steps.release.outputs.version }}"
+      - run: python -m pytest -m research
+      - run: >-
+          python -I -W error tools/release_audit.py --output audit-results.json
+          --artifact "dist/${{ steps.release.outputs.wheel }}"
+          --artifact "dist/${{ steps.release.outputs.sdist }}"
+      - run: python -m pip uninstall --yes believe14
+      - run: >-
+          python -m pip install
+          "dist/${{ steps.release.outputs.sdist }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ steps.release.outputs.version }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scientific-audit-${{ github.sha }}
+          path: audit-results.json
+          retention-days: 90
+          if-no-files-found: error

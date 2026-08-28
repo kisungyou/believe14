@@ -1,0 +1,101 @@
+:root {
+  --believe14-indigo: #4338ca;
+  --believe14-violet: #7c3aed;
+  --believe14-rule: #d8dee7;
+  --believe14-panel: #ffffff;
+  --pst-color-primary: var(--believe14-indigo);
+  --pst-color-secondary: var(--believe14-violet);
+  --pst-color-link: var(--believe14-indigo);
+}
+
+html[data-theme="dark"] {
+  --believe14-indigo: #a5b4fc;
+  --believe14-violet: #c4b5fd;
+  --believe14-rule: #38414a;
+  --believe14-panel: #171b20;
+}
+
+.bd-main .bd-content .bd-article-container {
+  max-width: 980px;
+}
+
+.bd-article h1 {
+  font-size: 2.3rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.bd-article h2 {
+  border-bottom: 1px solid var(--believe14-rule);
+  font-size: 1.45rem;
+  padding-bottom: 0.35rem;
+}
+
+.landing-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 2rem 0;
+}
+
+.landing-card {
+  background: var(--believe14-panel);
+  border: 1px solid var(--believe14-rule);
+  border-radius: 0.65rem;
+  color: var(--pst-color-text-base) !important;
+  display: block;
+  min-height: 150px;
+  padding: 1.25rem;
+  text-decoration: none !important;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.landing-card:hover {
+  border-color: var(--pst-color-primary);
+  box-shadow: 0 8px 24px rgb(30 41 59 / 12%);
+  transform: translateY(-2px);
+}
+
+.bd-article .landing-card h2 {
+  border: 0;
+  font-size: 1.12rem;
+  margin: 0;
+  padding: 0;
+}
+
+.landing-card p {
+  color: var(--pst-color-text-muted);
+  line-height: 1.55;
+  margin: 0.65rem 0 0;
+}
+
+.believe14-catalog,
+.believe14-example-coverage {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.believe14-example-coverage tr:target {
+  background: color-mix(in srgb, var(--pst-color-primary) 12%, transparent);
+}
+
+.cell_output {
+  border-left: 2px solid var(--believe14-rule);
+  margin-left: 0.35rem;
+  padding-left: 0.9rem;
+}
+
+.math {
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .landing-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-card {
+    min-height: 120px;
+  }
+}

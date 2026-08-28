@@ -1,0 +1,358 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: >-
+          python -m scripts.verify_release --check-clean --check-remote
+          --require-tag --expected-tag "$GITHUB_REF_NAME"
+
+  quality:
+    needs: verify-tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev,docs]"
+      - run: python -m ruff format --check .
+      - run: python -m ruff check .
+      - run: python -m mypy
+      - run: >-
+          python -m pytest --cov=believe14 --cov-report=term-missing
+          --cov-fail-under=90
+
+  distribution:
+    needs: verify-tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      wheel: ${{ steps.release.outputs.wheel }}
+      sdist: ${{ steps.release.outputs.sdist }}
+      tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - id: release
+        run: python -m scripts.release_info --github-output "$GITHUB_OUTPUT"
+      - run: python -m pip install --upgrade pip build twine
+      - run: python -m build
+      - run: >-
+          python -m twine check --strict
+          "dist/${{ steps.release.outputs.wheel }}"
+          "dist/${{ steps.release.outputs.sdist }}"
+      - run: python -m scripts.check_distribution --dist-dir dist
+      - run: >-
+          python -m scripts.artifact_hashes write --manifest SHA256SUMS
+          "dist/${{ steps.release.outputs.wheel }}"
+          "dist/${{ steps.release.outputs.sdist }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: |
+            dist/${{ steps.release.outputs.wheel }}
+            dist/${{ steps.release.outputs.sdist }}
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-checksums-${{ github.sha }}
+          path: SHA256SUMS
+          if-no-files-found: error
+          retention-days: 90
+
+  platforms:
+    needs: distribution
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: dist
+      - run: python -m pip install --upgrade pip pytest pytest-cov
+      - run: >-
+          python -m pip install
+          "dist/${{ needs.distribution.outputs.wheel }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+      - run: python -m pytest
+      - run: python -m pip uninstall --yes believe14
+      - run: >-
+          python -m pip install
+          "dist/${{ needs.distribution.outputs.sdist }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+
+  minimum-dependencies:
+    needs: distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: dist
+      - run: python -m pip install --upgrade pip
+      - run: >-
+          python -m pip install
+          numpy==2.5.1 scipy==1.18.0 scikit-learn==1.9.0
+          pytest==8.4.0 pytest-cov==6.2.0
+      - run: >-
+          python -m pip install --no-deps
+          "dist/${{ needs.distribution.outputs.wheel }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+      - run: python -m pytest
+      - run: python -m pip uninstall --yes believe14
+      - run: >-
+          python -m pip install --no-deps
+          "dist/${{ needs.distribution.outputs.sdist }}"
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+
+  documentation:
+    needs: distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: dist
+      - run: python -m pip install --upgrade pip
+      - run: >-
+          python -m pip install
+          "dist/${{ needs.distribution.outputs.wheel }}[docs]"
+      - run: python -I -m sphinx -W -b html docs docs/_build/html
+        env:
+          BELIEVE14_DOCS_REQUIRE_WHEEL: "1"
+      - run: python -I tools/check_docs_html.py docs/_build/html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-documentation-${{ github.sha }}
+          path: docs/_build/html
+          if-no-files-found: error
+          retention-days: 90
+
+  scientific-audit:
+    needs: distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: dist
+      - run: python -m pip install --upgrade pip pytest pytest-cov
+      - run: >-
+          python -m pip install
+          "dist/${{ needs.distribution.outputs.wheel }}"
+      - run: python -m pytest -m research
+      - run: >-
+          python -I -W error tools/release_audit.py --output audit-results.json
+          --artifact "dist/${{ needs.distribution.outputs.wheel }}"
+          --artifact "dist/${{ needs.distribution.outputs.sdist }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ github.sha }}
+          path: audit-results.json
+          retention-days: 90
+          if-no-files-found: error
+
+  publish-testpypi:
+    needs:
+      - quality
+      - distribution
+      - platforms
+      - minimum-dependencies
+      - documentation
+      - scientific-audit
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/believe14
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-checksums-${{ github.sha }}
+          path: checksums
+      - run: >-
+          python -m scripts.artifact_hashes verify
+          --manifest checksums/SHA256SUMS
+          "dist/${{ needs.distribution.outputs.wheel }}"
+          "dist/${{ needs.distribution.outputs.sdist }}"
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+          print-hash: true
+
+  testpypi-smoke:
+    needs: [distribution, publish-testpypi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: >-
+          python -m pip install
+          "numpy>=2.5.1" "scipy>=1.18.0" "scikit-learn>=1.9.0"
+      - name: Install the TestPyPI rehearsal
+        shell: bash
+        run: |
+          for attempt in {1..12}; do
+            if python -m pip install --no-deps \
+              --index-url https://test.pypi.org/simple/ \
+              "believe14==${{ needs.distribution.outputs.version }}"; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              exit 1
+            fi
+            sleep 10
+          done
+      - run: >-
+          python -I scripts/installed_smoke.py
+          --expected-version "${{ needs.distribution.outputs.version }}"
+
+  publish-pypi:
+    needs: [distribution, testpypi-smoke]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/believe14
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-checksums-${{ github.sha }}
+          path: checksums
+      - run: >-
+          python -m scripts.artifact_hashes verify
+          --manifest checksums/SHA256SUMS
+          "dist/${{ needs.distribution.outputs.wheel }}"
+          "dist/${{ needs.distribution.outputs.sdist }}"
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          print-hash: true
+
+  deploy-documentation:
+    needs: [documentation, publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-documentation-${{ github.sha }}
+          path: site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  github-release:
+    needs: [distribution, publish-pypi, deploy-documentation]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions-${{ github.sha }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-checksums-${{ github.sha }}
+          path: checksums
+      - run: >-
+          python -m scripts.artifact_hashes verify
+          --manifest checksums/SHA256SUMS
+          "dist/${{ needs.distribution.outputs.wheel }}"
+          "dist/${{ needs.distribution.outputs.sdist }}"
+      - name: Create GitHub Release from the tested artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${{ needs.distribution.outputs.tag }}"
+          --repo "${{ github.repository }}" --verify-tag
+          --title "believe14 ${{ needs.distribution.outputs.version }}"
+          --generate-notes
+          "dist/${{ needs.distribution.outputs.wheel }}"
+          "dist/${{ needs.distribution.outputs.sdist }}"
+          checksums/SHA256SUMS

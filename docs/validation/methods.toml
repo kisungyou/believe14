@@ -1,0 +1,182 @@
+schema_version = 1
+release = "0.1.0"
+
+[[methods]]
+name = "PCA"
+family = "linear"
+state = "public"
+ledger = "linear/pca.md"
+
+[[methods]]
+name = "GaussianRandomProjection"
+family = "linear"
+state = "public"
+ledger = "linear/gaussian_random_projection.md"
+
+[[methods]]
+name = "FactorAnalysis"
+family = "linear"
+state = "public"
+ledger = "linear/factor_analysis.md"
+
+[[methods]]
+name = "ProbabilisticPCA"
+family = "linear"
+state = "public"
+ledger = "linear/probabilistic_pca.md"
+
+[[methods]]
+name = "FastICA"
+family = "linear"
+state = "public"
+ledger = "linear/fastica.md"
+
+[[methods]]
+name = "SparsePCA"
+family = "linear"
+state = "public"
+ledger = "linear/sparse_pca.md"
+
+[[methods]]
+name = "LinearDiscriminantAnalysis"
+family = "linear"
+state = "public"
+ledger = "linear/linear_discriminant_analysis.md"
+
+[[methods]]
+name = "CanonicalCorrelationAnalysis"
+family = "linear"
+state = "public"
+ledger = "linear/canonical_correlation_analysis.md"
+
+[[methods]]
+name = "PLSRegression"
+family = "linear"
+state = "public"
+ledger = "linear/pls_regression.md"
+
+[[methods]]
+name = "SlicedInverseRegression"
+family = "linear"
+state = "public"
+ledger = "linear/sliced_inverse_regression.md"
+
+[[methods]]
+name = "SlicedAverageVarianceEstimation"
+family = "linear"
+state = "public"
+ledger = "linear/sliced_average_variance_estimation.md"
+
+[[methods]]
+name = "FisherScore"
+family = "linear"
+state = "public"
+ledger = "linear/fisher_score.md"
+
+[[methods]]
+name = "ClassicalMDS"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/classical-mds.md"
+
+[[methods]]
+name = "MetricMDS"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/metric-mds.md"
+
+[[methods]]
+name = "SammonMapping"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/sammon-mapping.md"
+
+[[methods]]
+name = "FastMap"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/fastmap.md"
+
+[[methods]]
+name = "KernelPCA"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/kernel-pca.md"
+
+[[methods]]
+name = "Isomap"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/isomap.md"
+
+[[methods]]
+name = "LocallyLinearEmbedding"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/locally-linear-embedding.md"
+
+[[methods]]
+name = "LaplacianEigenmaps"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/laplacian-eigenmaps.md"
+
+[[methods]]
+name = "DiffusionMap"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/diffusion-map.md"
+
+[[methods]]
+name = "LocalTangentSpaceAlignment"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/local-tangent-space-alignment.md"
+
+[[methods]]
+name = "TSNE"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/tsne.md"
+
+[[methods]]
+name = "PHATE"
+family = "nonlinear"
+state = "public"
+ledger = "nonlinear/phate.md"
+
+[[methods]]
+name = "CorrelationDimension"
+family = "estimation"
+state = "public"
+ledger = "estimation/correlation-dimension.md"
+
+[[methods]]
+name = "TwoNN"
+family = "estimation"
+state = "public"
+ledger = "estimation/two-nn.md"
+
+[[methods]]
+name = "LevinaBickelMLE"
+family = "estimation"
+state = "public"
+ledger = "estimation/levina-bickel-mle.md"
+
+[[methods]]
+name = "UStatisticDimension"
+family = "estimation"
+state = "public"
+ledger = "estimation/u-statistic-dimension.md"
+
+[[methods]]
+name = "MiNDML"
+family = "estimation"
+state = "public"
+ledger = "estimation/mind-ml.md"
+
+[[methods]]
+name = "DANCo"
+family = "estimation"
+state = "public"
+ledger = "estimation/danco.md"

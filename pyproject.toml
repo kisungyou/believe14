@@ -1,0 +1,115 @@
+[build-system]
+requires = ["hatchling>=1.31"]
+build-backend = "hatchling.build"
+
+[project]
+name = "believe14"
+version = "0.1.0"
+description = "Paper-first dimensionality reduction and intrinsic-dimension estimation"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "Kisung You" }]
+keywords = [
+  "dimensionality reduction",
+  "manifold learning",
+  "intrinsic dimension",
+  "machine learning",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+  "numpy>=2.5.1",
+  "scipy>=1.18.0",
+  "scikit-learn>=1.9.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8.4",
+  "pytest-cov>=6.2",
+]
+dev = [
+  "build>=1.3",
+  "mypy>=1.17",
+  "pytest>=8.4",
+  "pytest-cov>=6.2",
+  "ruff>=0.12",
+]
+docs = [
+  "matplotlib>=3.10",
+  "myst-nb>=1.3",
+  "pydata-sphinx-theme>=0.16",
+  "sphinx>=8.2",
+  "sphinx-copybutton>=0.5",
+  "sphinxcontrib-bibtex>=2.6",
+]
+
+[project.urls]
+Repository = "https://github.com/kisungyou/believe14"
+Issues = "https://github.com/kisungyou/believe14/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/believe14"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/docs",
+  "/tools",
+  "/scripts",
+  "/README.md",
+  "/Makefile",
+  "/RELEASING.md",
+  "/LICENSE",
+  "/CHANGELOG.md",
+  "/CITATION.cff",
+  "/pyproject.toml",
+  "/uv.lock",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src", "tests", "tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["believe14"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["scipy.*", "sklearn.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers -W error -m 'not research'"
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+  "research: empirical validation that is excluded from the default test run",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["believe14"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
