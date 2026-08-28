@@ -11,9 +11,9 @@ WHEEL := $(DIST_DIR)/$(shell $(PYTHON) -m scripts.release_info --field wheel)
 SDIST := $(DIST_DIR)/$(shell $(PYTHON) -m scripts.release_info --field sdist)
 ARTIFACT_ENV := $(PYTHON) -m scripts.run_in_artifact_env --installer uv
 
-.PHONY: help quality test research build package-check docs examples \
-	examples-or-docs metadata-check verify-release verify-tag release-audit \
-	release-check
+.PHONY: help quality test research build package-check package-check-built \
+	docs docs-built examples examples-or-docs metadata-check verify-release \
+	verify-tag release-audit release-audit-built release-check
 
 help:
 	@echo "believe14 $(VERSION) development commands"
@@ -37,14 +37,18 @@ research:
 build:
 	$(UV_CACHE_ENV) $(UV) build --offline --no-create-gitignore --out-dir $(DIST_DIR)
 
-package-check: build
+package-check: build package-check-built
+
+package-check-built:
 	$(PYTHON) -m twine check --strict $(WHEEL) $(SDIST)
 	$(PYTHON) -m scripts.check_distribution --dist-dir $(DIST_DIR)
 	$(PYTHON) -m scripts.artifact_hashes write --manifest $(DIST_DIR)/SHA256SUMS $(WHEEL) $(SDIST)
 	$(ARTIFACT_ENV) --artifact $(WHEEL) -- {python} -I scripts/installed_smoke.py --expected-version $(VERSION)
 	$(ARTIFACT_ENV) --artifact $(SDIST) -- {python} -I scripts/installed_smoke.py --expected-version $(VERSION)
 
-docs: build
+docs: build docs-built
+
+docs-built:
 	BELIEVE14_DOCS_REQUIRE_WHEEL=1 $(ARTIFACT_ENV) --artifact $(WHEEL) -- {python} -I -m sphinx -W -b html docs $(DOCS_BUILD_DIR)
 	$(ARTIFACT_ENV) --artifact $(WHEEL) -- {python} -I tools/check_docs_html.py $(DOCS_BUILD_DIR)
 
@@ -61,7 +65,9 @@ verify-release:
 verify-tag:
 	$(PYTHON) -m scripts.verify_release --check-clean --check-remote --require-tag --expected-tag $(TAG)
 
-release-audit: package-check
+release-audit: package-check release-audit-built
+
+release-audit-built:
 	$(PYTHON) -c "from pathlib import Path; Path('$(AUDIT_OUTPUT)').parent.mkdir(parents=True, exist_ok=True)"
 	$(ARTIFACT_ENV) --artifact $(WHEEL) -- {python} -I -W error tools/release_audit.py --output $(AUDIT_OUTPUT) --artifact $(WHEEL) --artifact $(SDIST)
 
@@ -69,7 +75,8 @@ release-check:
 	$(MAKE) verify-release
 	$(MAKE) quality
 	$(MAKE) test
-	$(MAKE) examples
-	$(MAKE) package-check
 	$(MAKE) research
-	$(MAKE) release-audit
+	$(MAKE) build
+	$(MAKE) package-check-built
+	$(MAKE) docs-built
+	$(MAKE) release-audit-built
