@@ -178,7 +178,8 @@ def test_method_catalog_links_each_estimator_to_its_exact_card(tmp_path: Path) -
         target = tmp_path / f"{cards[info.name]}.html"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("<html></html>", encoding="utf-8")
-        links.append(f'<a href="{target.relative_to(tmp_path)}">{info.name}</a>')
+        href = target.relative_to(tmp_path).as_posix()
+        links.append(f'<a href="{href}">{info.name}</a>')
     methods.write_text(
         '<html><table class="believe14-catalog"><tr><td>'
         + "".join(links)
