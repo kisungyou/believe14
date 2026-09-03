@@ -126,6 +126,67 @@ def test_repository_verifier_rejects_lightweight_tag(tmp_path: Path) -> None:
         )
 
 
+def test_forced_tag_refetch_restores_annotated_release_tag(tmp_path: Path) -> None:
+    origin = tmp_path / "origin.git"
+    source = tmp_path / "source"
+    runner = tmp_path / "runner"
+
+    _git(tmp_path, "init", "--bare", "--initial-branch=main", str(origin))
+    source.mkdir()
+    _git(source, "init", "-b", "main")
+    _git(source, "config", "user.name", "Release Test")
+    _git(source, "config", "user.email", "release@example.invalid")
+    (source / "tracked.txt").write_text("release\n", encoding="utf-8")
+    _git(source, "add", "tracked.txt")
+    _git(source, "commit", "-m", "Initial release")
+    _git(source, "tag", "-a", "v0.1.0", "-m", "believe14 0.1.0")
+    _git(source, "remote", "add", "origin", str(origin))
+    _git(source, "push", "origin", "main", "refs/tags/v0.1.0")
+
+    _git(tmp_path, "clone", "--no-tags", str(origin), str(runner))
+    _git(runner, "tag", "v0.1.0")
+    info = load_release_info()
+    with pytest.raises(ReleaseVerificationError, match="annotated tag"):
+        verify_repository(
+            runner,
+            info,
+            check_clean=True,
+            check_remote=False,
+            require_tag=True,
+            expected_tag="v0.1.0",
+        )
+
+    _git(
+        runner,
+        "fetch",
+        "--force",
+        "--no-tags",
+        "origin",
+        "refs/tags/v0.1.0:refs/tags/v0.1.0",
+    )
+    verify_repository(
+        runner,
+        info,
+        check_clean=True,
+        check_remote=False,
+        require_tag=True,
+        expected_tag="v0.1.0",
+    )
+
+
+def test_publish_refetches_annotated_tag_before_verification() -> None:
+    publish = (project_root() / ".github/workflows/publish.yml").read_text(
+        encoding="utf-8"
+    )
+    fetch_position = publish.index("git fetch --force --no-tags origin")
+    refspec_position = publish.index(
+        '"refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"'
+    )
+    verification_position = publish.index("python -m scripts.verify_release")
+
+    assert fetch_position < refspec_position < verification_position
+
+
 def test_workflows_discover_artifact_names_and_cover_release_matrix() -> None:
     workflows = project_root() / ".github/workflows"
     ci = (workflows / "ci.yml").read_text(encoding="utf-8")
