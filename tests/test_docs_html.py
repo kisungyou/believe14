@@ -4,11 +4,11 @@ import os
 from pathlib import Path
 
 import pytest
-from docs._ext.catalog import discover_example_cards
 from tools.check_docs_html import (
     GUIDE_SLUGS,
     PRIMARY_NAVIGATION,
     _inventory_errors,
+    _method_card_docnames,
     _navigation_errors,
     parse_page,
 )
@@ -171,11 +171,11 @@ def test_section_navigation_rejects_global_method_and_guide_inventory(
 
 
 def test_method_catalog_links_each_estimator_to_its_exact_card(tmp_path: Path) -> None:
-    cards = {card.estimator: card for card in discover_example_cards(ROOT / "docs")}
+    cards = _method_card_docnames(ROOT / "docs")
     methods = tmp_path / "methods.html"
     links: list[str] = []
     for info in list_estimators():
-        target = tmp_path / f"{cards[info.name].docname}.html"
+        target = tmp_path / f"{cards[info.name]}.html"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("<html></html>", encoding="utf-8")
         links.append(f'<a href="{target.relative_to(tmp_path)}">{info.name}</a>')

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sys
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
@@ -13,12 +12,6 @@ from urllib.parse import unquote, urlsplit
 from believe14.registry import list_estimators
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(PROJECT_ROOT))
-try:
-    from docs._ext.catalog import discover_example_cards
-finally:
-    sys.path.pop(0)
-
 IGNORED_TEXT_TAGS = {"code", "pre", "script", "style"}
 VOID_TAGS = {
     "area",
@@ -60,6 +53,8 @@ PRIMARY_NAVIGATION = (
     ("API reference", "api.html"),
     ("Development", "development/index.html"),
 )
+CARD_FRONT_MATTER = re.compile(r"\A---\s*\n(?P<body>.*?)\n---\s*\n", re.DOTALL)
+CARD_FIELD = re.compile(r"^(?P<key>[A-Za-z][A-Za-z0-9_-]*):\s*(?P<value>.*?)\s*$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,6 +227,34 @@ def parse_page(path: Path) -> RenderedPageParser:
     parser.feed(path.read_text(encoding="utf-8"))
     parser.close()
     return parser
+
+
+def _method_card_docnames(docs_root: Path) -> dict[str, str]:
+    """Return the validated estimator-to-card mapping without Sphinx imports."""
+
+    observed: dict[str, tuple[str, str]] = {}
+    for path in sorted((docs_root / "examples").glob("*.md")):
+        match = CARD_FRONT_MATTER.match(path.read_text(encoding="utf-8"))
+        if match is None:
+            raise ValueError(f"method card has no front matter: {path}")
+        fields: dict[str, str] = {}
+        for line in match.group("body").splitlines():
+            field = CARD_FIELD.match(line)
+            if field is not None:
+                fields[field.group("key")] = field.group("value").strip("'\"")
+        estimator = fields.get("believe14_estimator")
+        family = fields.get("believe14_family")
+        if estimator is None or family is None:
+            raise ValueError(f"method card metadata is incomplete: {path}")
+        if estimator in observed:
+            raise ValueError(f"duplicate method card for {estimator}")
+        observed[estimator] = (family, f"examples/{path.stem}")
+
+    expected = {info.name: info.family for info in list_estimators()}
+    observed_families = {name: family for name, (family, _) in observed.items()}
+    if len(observed) != 30 or observed_families != expected:
+        raise ValueError("method cards do not exactly match the public registry")
+    return {name: docname for name, (_, docname) in observed.items()}
 
 
 def _is_escaped(text: str, index: int) -> bool:
@@ -462,11 +485,11 @@ def _inventory_errors(
         errors.append(f"Missing generated method catalog: {methods_page}")
     else:
         source_root = PROJECT_ROOT / "docs"
-        cards = {card.estimator: card for card in discover_example_cards(source_root)}
+        cards = _method_card_docnames(source_root)
         links = parsed_pages[methods_page].catalog_links
         for info in list_estimators():
             matching = [link for link in links if link.label == info.name]
-            expected_target = (site / f"{cards[info.name].docname}.html").resolve()
+            expected_target = (site / f"{cards[info.name]}.html").resolve()
             if len(matching) != 1:
                 errors.append(
                     f"methods.html: expected one catalog link for {info.name}, "
