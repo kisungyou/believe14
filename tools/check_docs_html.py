@@ -498,14 +498,15 @@ def _inventory_errors(
                 continue
             resolved = resolve_local_reference(site, methods_page, matching[0].href)
             if resolved is None or resolved[0] != expected_target:
+                expected_relative = expected_target.relative_to(site).as_posix()
                 errors.append(
-                    f"methods.html: {info.name} does not link to "
-                    f"{expected_target.relative_to(site)}"
+                    f"methods.html: {info.name} does not link to {expected_relative}"
                 )
             elif not expected_target.exists():
+                expected_relative = expected_target.relative_to(site).as_posix()
                 errors.append(
                     f"methods.html: linked card for {info.name} does not exist: "
-                    f"{expected_target.relative_to(site)}"
+                    f"{expected_relative}"
                 )
 
     for slug in GUIDE_SLUGS:
