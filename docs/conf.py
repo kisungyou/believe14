@@ -83,6 +83,7 @@ html_css_files = ["custom.css"]
 html_theme_options = {
     "show_toc_level": 2,
     "navigation_with_keys": True,
+    "header_links_before_dropdown": 5,
     "navbar_align": "left",
     "navbar_center": ["navbar-nav"],
     "navbar_end": ["theme-switcher", "navbar-icon-links"],
@@ -97,7 +98,11 @@ html_theme_options = {
     "footer_start": ["copyright"],
     "footer_end": ["sphinx-version"],
 }
-html_sidebars = {"index": [], "**": ["search-field", "sidebar-nav-bs"]}
+html_sidebars = {
+    "index": [],
+    "getting_started/index": [],
+    "**": ["search-field", "sidebar-nav-bs"],
+}
 
 copybutton_prompt_text = r">>> |\.\.\. |\$ "
 copybutton_prompt_is_regexp = True

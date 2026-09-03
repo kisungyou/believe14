@@ -9,24 +9,18 @@ intrinsic-dimension estimation. Its 30 public estimators share explicit
 numerical diagnostics, deterministic examples, and validation ledgers that
 freeze the mathematical conventions used by version 0.1.0.
 
-```python
-from believe14.linear import PCA
-
-embedding = PCA(n_components=2).fit_transform(X)
-```
-
 <div class="landing-grid">
-  <a class="landing-card" href="guides/choosing-a-method.html">
-    <h2>Choose a method</h2>
-    <p>Filter the registry by family, supervision, input, and out-of-sample support.</p>
+  <a class="landing-card" href="getting_started/index.html">
+    <h2>Getting started</h2>
+    <p>Install believe14, run a complete PCA example, and read its numerical diagnostics.</p>
+  </a>
+  <a class="landing-card" href="tutorials/index.html">
+    <h2>Tutorials</h2>
+    <p>Learn workflows through six deterministic guides executed during every build.</p>
   </a>
   <a class="landing-card" href="methods.html">
-    <h2>Method catalog</h2>
-    <p>Browse all 30 public estimators and their exact computational contracts.</p>
-  </a>
-  <a class="landing-card" href="guides/linear-latent-representations.html">
-    <h2>Executable guides</h2>
-    <p>Learn workflows through small, deterministic examples executed during every build.</p>
+    <h2>Methods</h2>
+    <p>Browse all 30 estimators by family and open their executable method cards.</p>
   </a>
   <a class="landing-card" href="api.html">
     <h2>API reference</h2>
@@ -43,25 +37,11 @@ silently repairing scientific inputs or changing algorithms.
 
 ```{toctree}
 :hidden:
-:maxdepth: 2
+:maxdepth: 1
 
-guides/choosing-a-method
-guides/linear-latent-representations
-guides/supervised-and-paired-reductions
-guides/distance-and-graph-embeddings
-guides/stress-and-stochastic-embeddings
-guides/intrinsic-dimension
-methods
-api
-scientific-contract
-references
-validation/index
-contributing
-```
-
-```{toctree}
-:hidden:
-:glob:
-
-examples/*
+Getting started <getting_started/index>
+Tutorials <tutorials/index>
+Methods <methods>
+API reference <api>
+Development <development/index>
 ```

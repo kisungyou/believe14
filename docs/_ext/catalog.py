@@ -128,7 +128,7 @@ def _mode(info: EstimatorInfo) -> str:
 
 
 class CatalogDirective(Directive):
-    """Render one believe14 family as a registry-backed table."""
+    """Render one believe14 family as a registry-backed, linked table."""
 
     required_arguments = 1
     has_content = False
@@ -137,6 +137,15 @@ class CatalogDirective(Directive):
         family = self.arguments[0]
         if family not in {"linear", "nonlinear", "estimation"}:
             raise self.error(f"Unknown believe14 family: {family}")
+        environment = self.state.document.settings.env
+        try:
+            cards = {
+                card.estimator: card
+                for card in discover_example_cards(Path(environment.srcdir))
+            }
+        except ValueError as error:
+            raise self.error(str(error)) from error
+        builder = environment.app.builder
         table, body = _table(5, "believe14-catalog")
         _add_header(
             table,
@@ -144,8 +153,13 @@ class CatalogDirective(Directive):
         )
         for info in list_estimators(family=family):
             row = nodes.row()
+            card = cards[info.name]
+            target = builder.get_relative_uri(environment.docname, card.docname)
+            estimator_link = nodes.reference(
+                "", info.name, refuri=target, internal=True
+            )
             values = (
-                info.name,
+                estimator_link,
                 ", ".join(sorted(info.approaches)),
                 info.supervision,
                 info.out_of_sample or "transductive / not applicable",

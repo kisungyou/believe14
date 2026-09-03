@@ -4,11 +4,20 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
+from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from believe14.registry import list_estimators
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+try:
+    from docs._ext.catalog import discover_example_cards
+finally:
+    sys.path.pop(0)
 
 IGNORED_TEXT_TAGS = {"code", "pre", "script", "style"}
 VOID_TAGS = {
@@ -44,6 +53,22 @@ GUIDE_SLUGS = (
     "stress-and-stochastic-embeddings",
     "intrinsic-dimension",
 )
+PRIMARY_NAVIGATION = (
+    ("Getting started", "getting_started/index.html"),
+    ("Tutorials", "tutorials/index.html"),
+    ("Methods", "methods.html"),
+    ("API reference", "api.html"),
+    ("Development", "development/index.html"),
+)
+
+
+@dataclass(frozen=True, slots=True)
+class NavigationEntry:
+    """One rendered navigation link."""
+
+    label: str
+    href: str
+    active: bool
 
 
 class RenderedPageParser(HTMLParser):
@@ -51,14 +76,28 @@ class RenderedPageParser(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, bool, bool]] = []
+        self.stack: list[tuple[str, bool, bool, frozenset[str]]] = []
         self.ignored_depth = 0
         self.math_depth = 0
         self.current_math: list[str] = []
         self.math_nodes: list[str] = []
         self.prose: list[str] = []
         self.references: list[tuple[str, str]] = []
+        self.catalog_links: list[NavigationEntry] = []
+        self._catalog_depth = 0
+        self._catalog_link: tuple[str, bool] | None = None
+        self._catalog_text: list[str] = []
         self.ids: set[str] = set()
+        self.primary_navigation: list[list[NavigationEntry]] = []
+        self._navigation_depth = 0
+        self._navigation_link: tuple[str, bool] | None = None
+        self._navigation_text: list[str] = []
+        self.primary_sidebar_classes: set[str] | None = None
+        self.section_navigation: list[NavigationEntry] = []
+        self.has_more_overflow = False
+        self._section_navigation_depth = 0
+        self._section_link: tuple[str, bool] | None = None
+        self._section_text: list[str] = []
 
     def _attributes(self, tag: str, attributes: list[tuple[str, str | None]]) -> None:
         attrs = dict(attributes)
@@ -74,10 +113,54 @@ class RenderedPageParser(HTMLParser):
         self._attributes(tag, attrs)
         if tag in VOID_TAGS:
             return
-        classes = set((dict(attrs).get("class") or "").split())
+        attributes = dict(attrs)
+        classes = frozenset((attributes.get("class") or "").split())
+        if (
+            attributes.get("id") == "pst-nav-more-links"
+            or attributes.get("aria-controls") == "pst-nav-more-links"
+        ):
+            self.has_more_overflow = True
         starts_ignored = tag in IGNORED_TEXT_TAGS
         starts_math = "math" in classes and "nohighlight" in classes
-        self.stack.append((tag, starts_ignored, starts_math))
+        if "believe14-catalog" in classes:
+            self._catalog_depth = 1
+        elif self._catalog_depth:
+            self._catalog_depth += 1
+        if self._catalog_depth and tag == "a":
+            active = any(
+                open_tag == "li" and bool({"active", "current"} & open_classes)
+                for open_tag, _, _, open_classes in self.stack
+            )
+            self._catalog_link = (attributes.get("href") or "", active)
+            self._catalog_text = []
+        if tag == "ul" and {"bd-navbar-elements", "navbar-nav"} <= classes:
+            self.primary_navigation.append([])
+            self._navigation_depth = 1
+        elif self._navigation_depth:
+            self._navigation_depth += 1
+        if self._navigation_depth and tag == "a":
+            active = any(
+                open_tag == "li" and bool({"active", "current"} & open_classes)
+                for open_tag, _, _, open_classes in self.stack
+            )
+            self._navigation_link = (attributes.get("href") or "", active)
+            self._navigation_text = []
+
+        if tag == "div" and attributes.get("id") == "pst-primary-sidebar":
+            self.primary_sidebar_classes = set(classes)
+        if tag == "nav" and attributes.get("aria-label") == "Section Navigation":
+            self._section_navigation_depth = 1
+        elif self._section_navigation_depth:
+            self._section_navigation_depth += 1
+        if self._section_navigation_depth and tag == "a":
+            active = any(
+                open_tag == "li" and bool({"active", "current"} & open_classes)
+                for open_tag, _, _, open_classes in self.stack
+            )
+            self._section_link = (attributes.get("href") or "", active)
+            self._section_text = []
+
+        self.stack.append((tag, starts_ignored, starts_math, classes))
         if starts_ignored:
             self.ignored_depth += 1
         if starts_math:
@@ -91,9 +174,34 @@ class RenderedPageParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if not self.stack:
             return
-        open_tag, ends_ignored, ends_math = self.stack.pop()
+        open_tag, ends_ignored, ends_math, _ = self.stack.pop()
         if open_tag != tag:
             return
+        if tag == "a" and self._catalog_link is not None:
+            href, active = self._catalog_link
+            label = " ".join("".join(self._catalog_text).split())
+            self.catalog_links.append(NavigationEntry(label, href, active))
+            self._catalog_link = None
+            self._catalog_text = []
+        if self._catalog_depth:
+            self._catalog_depth -= 1
+        if tag == "a" and self._navigation_link is not None:
+            href, active = self._navigation_link
+            label = " ".join("".join(self._navigation_text).split())
+            self.primary_navigation[-1].append(NavigationEntry(label, href, active))
+            self._navigation_link = None
+            self._navigation_text = []
+        if self._navigation_depth:
+            self._navigation_depth -= 1
+
+        if tag == "a" and self._section_link is not None:
+            href, active = self._section_link
+            label = " ".join("".join(self._section_text).split())
+            self.section_navigation.append(NavigationEntry(label, href, active))
+            self._section_link = None
+            self._section_text = []
+        if self._section_navigation_depth:
+            self._section_navigation_depth -= 1
         if ends_ignored:
             self.ignored_depth -= 1
         if ends_math:
@@ -103,6 +211,12 @@ class RenderedPageParser(HTMLParser):
                 self.current_math = []
 
     def handle_data(self, data: str) -> None:
+        if self._catalog_link is not None:
+            self._catalog_text.append(data)
+        if self._navigation_link is not None:
+            self._navigation_text.append(data)
+        if self._section_link is not None:
+            self._section_text.append(data)
         if self.ignored_depth:
             return
         if self.math_depth:
@@ -225,6 +339,106 @@ def resolve_local_reference(
     return target.resolve(), unquote(parsed.fragment)
 
 
+def _relative_page(site: Path, page: Path) -> str:
+    return page.relative_to(site).as_posix()
+
+
+def _navigation_errors(
+    site: Path, parsed_pages: dict[Path, RenderedPageParser]
+) -> list[str]:
+    """Validate the five-section site navigation and section-level scoping."""
+
+    errors: list[str] = []
+    expected_labels = tuple(label for label, _ in PRIMARY_NAVIGATION)
+    expected_targets = tuple(
+        (site / target).resolve() for _, target in PRIMARY_NAVIGATION
+    )
+
+    for page, parser in parsed_pages.items():
+        relative_page = _relative_page(site, page)
+        if parser.has_more_overflow:
+            errors.append(
+                f"{relative_page}: primary navbar contains a More overflow menu"
+            )
+        if len(parser.primary_navigation) != 2:
+            errors.append(
+                f"{relative_page}: expected two primary navbar copies, found "
+                f"{len(parser.primary_navigation)}"
+            )
+            continue
+        for copy_number, navigation in enumerate(parser.primary_navigation, 1):
+            labels = tuple(entry.label for entry in navigation)
+            if labels != expected_labels:
+                errors.append(
+                    f"{relative_page}: primary navbar copy {copy_number} has "
+                    f"labels {labels!r}, expected {expected_labels!r}"
+                )
+                continue
+            targets = tuple(
+                resolved[0]
+                if (resolved := resolve_local_reference(site, page, entry.href))
+                else None
+                for entry in navigation
+            )
+            if targets != expected_targets:
+                errors.append(
+                    f"{relative_page}: primary navbar copy {copy_number} has "
+                    "incorrect section targets"
+                )
+
+    representative_sections = {
+        "getting_started/index.html": "Getting started",
+        "tutorials/index.html": "Tutorials",
+        "guides/choosing-a-method.html": "Tutorials",
+        "methods.html": "Methods",
+        "examples/pca.html": "Methods",
+        "api.html": "API reference",
+        "development/index.html": "Development",
+        "validation/index.html": "Development",
+    }
+    for relative_page, expected_active in representative_sections.items():
+        page = (site / relative_page).resolve()
+        parser = parsed_pages.get(page)
+        if parser is None:
+            errors.append(f"Missing representative navigation page: {relative_page}")
+            continue
+        for copy_number, navigation in enumerate(parser.primary_navigation, 1):
+            active = tuple(entry.label for entry in navigation if entry.active)
+            if active != (expected_active,):
+                errors.append(
+                    f"{relative_page}: primary navbar copy {copy_number} has active "
+                    f"sections {active!r}, expected {(expected_active,)!r}"
+                )
+
+    for relative_page in ("index.html", "getting_started/index.html"):
+        page = (site / relative_page).resolve()
+        parser = parsed_pages.get(page)
+        if parser is None:
+            continue
+        sidebar_classes = parser.primary_sidebar_classes
+        if sidebar_classes is not None and "hide-on-wide" not in sidebar_classes:
+            errors.append(f"{relative_page}: desktop primary sidebar must be hidden")
+        if parser.section_navigation:
+            errors.append(f"{relative_page}: section navigation must be empty")
+
+    card_targets = {page.resolve() for page in (site / "examples").glob("*.html")}
+    guide_targets = {
+        (site / "guides" / f"{slug}.html").resolve() for slug in GUIDE_SLUGS
+    }
+    for page, parser in parsed_pages.items():
+        section_targets = {
+            resolved[0]
+            for entry in parser.section_navigation
+            if (resolved := resolve_local_reference(site, page, entry.href)) is not None
+        }
+        if card_targets <= section_targets and guide_targets <= section_targets:
+            errors.append(
+                f"{_relative_page(site, page)}: section navigation exposes every "
+                "method card and guide instead of the current section"
+            )
+    return errors
+
+
 def _inventory_errors(
     site: Path, parsed_pages: dict[Path, RenderedPageParser]
 ) -> list[str]:
@@ -242,6 +456,34 @@ def _inventory_errors(
         rendered = api_page.read_text(encoding="utf-8")
         if ".. py:class::" in rendered or ".. py:module::" in rendered:
             errors.append("api.html: autodoc directives were emitted as plain text")
+
+    methods_page = (site / "methods.html").resolve()
+    if methods_page not in parsed_pages:
+        errors.append(f"Missing generated method catalog: {methods_page}")
+    else:
+        source_root = PROJECT_ROOT / "docs"
+        cards = {card.estimator: card for card in discover_example_cards(source_root)}
+        links = parsed_pages[methods_page].catalog_links
+        for info in list_estimators():
+            matching = [link for link in links if link.label == info.name]
+            expected_target = (site / f"{cards[info.name].docname}.html").resolve()
+            if len(matching) != 1:
+                errors.append(
+                    f"methods.html: expected one catalog link for {info.name}, "
+                    f"found {len(matching)}"
+                )
+                continue
+            resolved = resolve_local_reference(site, methods_page, matching[0].href)
+            if resolved is None or resolved[0] != expected_target:
+                errors.append(
+                    f"methods.html: {info.name} does not link to "
+                    f"{expected_target.relative_to(site)}"
+                )
+            elif not expected_target.exists():
+                errors.append(
+                    f"methods.html: linked card for {info.name} does not exist: "
+                    f"{expected_target.relative_to(site)}"
+                )
 
     for slug in GUIDE_SLUGS:
         guide = (site / "guides" / f"{slug}.html").resolve()
@@ -278,6 +520,7 @@ def audit_site(site: Path) -> list[str]:
         return [f"No HTML pages found under {site}."]
     parsed_pages = {page.resolve(): parse_page(page) for page in pages}
     errors = _inventory_errors(site, parsed_pages)
+    errors.extend(_navigation_errors(site, parsed_pages))
     math_count = 0
     local_reference_count = 0
 
