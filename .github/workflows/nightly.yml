@@ -45,7 +45,9 @@ jobs:
       - run: >-
           python -I scripts/installed_smoke.py
           --expected-version "${{ steps.release.outputs.version }}"
+      - run: python -m pytest
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: scientific-audit-${{ github.sha }}
           path: audit-results.json

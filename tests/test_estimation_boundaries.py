@@ -66,7 +66,7 @@ def test_correlation_dimension_rejects_saturated_and_flat_scale_ranges() -> None
         (MiNDML(n_neighbors=False), "n_neighbors must be an integer"),
         (MiNDML(n_neighbors=0), "n_neighbors must be at least 1"),
         (UStatisticDimension(max_dimension=False), "max_dimension must be an integer"),
-        (DANCo(n_neighbors=1), "n_neighbors must be at least 2"),
+        (DANCo(n_neighbors=1), "n_neighbors must be at least 3"),
         (DANCo(max_dimension=1), "max_dimension must be at least 2"),
     ],
 )
@@ -156,7 +156,7 @@ def test_normalized_minimum_distance_ties_fail_for_mind_and_danco() -> None:
     X = np.array([[0.0, 0.0], [1.0, 0.0], [-1.0, 0.0], [0.0, 1.0], [0.0, -1.0]])
     for estimator in (
         MiNDML(n_neighbors=2, max_dimension=2),
-        DANCo(n_neighbors=2, max_dimension=2, random_state=0),
+        DANCo(n_neighbors=3, max_dimension=2, random_state=0),
     ):
         with pytest.raises(ValueError, match=r"first and \(k \+ 1\)-st neighbor"):
             estimator.fit(X)
@@ -171,7 +171,11 @@ def test_ustatistic_default_bound_and_interior_solution_diagnostics() -> None:
     embedded = np.column_stack((intrinsic, np.zeros(intrinsic.shape[0])))
     interior = UStatisticDimension(max_dimension=3, random_state=4).fit(embedded)
     assert interior.dimension_ == 2.0
-    assert interior.diagnostics_.warnings == ()
+    assert len(interior.diagnostics_.warnings) == 1
+    assert "Experimental accuracy" in interior.diagnostics_.warnings[0]
+    assert not any(
+        "candidate boundary" in item for item in interior.diagnostics_.warnings
+    )
 
 
 def test_ustatistic_rejects_zero_compact_kernel_statistic() -> None:

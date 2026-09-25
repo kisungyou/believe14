@@ -14,5 +14,5 @@
 - Evidence: whitening covariance, exact full-rank inverse, non-Gaussian mixture,
   seeded replay, and forced non-convergence tests. Source order and sign are
   non-identifiable and are never raw-coordinate acceptance criteria.
-- Complexity and legacy: the dense path combines a thin SVD with iterative
-  symmetric fixed-point updates. Rdimtools output is not an acceptance target.
+- **Complexity:** `O(min(np^2,n^2p) + T(nk^2 + k^3) + pk^2)` time and `O(np + pk)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

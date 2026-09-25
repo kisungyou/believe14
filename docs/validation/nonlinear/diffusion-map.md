@@ -15,4 +15,7 @@
   eigen-equation.
 - **Evidence:** the fitted operator is row-stochastic, the training Nyström extension
   reproduces coordinates, and normalized symmetric-eigen residuals are tested.
-  Complexity is `O(n^2 p + n^3)` time and `O(n^2)` memory. Rdimtools is not an oracle.
+  Rdimtools is not an oracle.
+
+- **Complexity:** `O(n^2 p + n^3) time; O(np + n^2) memory`; symbols follow the
+  [method catalog](../../methods.md).

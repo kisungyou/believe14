@@ -120,6 +120,7 @@ jobs:
       - run: >-
           python -I scripts/installed_smoke.py
           --expected-version "${{ needs.distribution.outputs.version }}"
+      - run: python -m pytest
 
   minimum-dependencies:
     needs: distribution
@@ -153,6 +154,7 @@ jobs:
       - run: >-
           python -I scripts/installed_smoke.py
           --expected-version "${{ needs.distribution.outputs.version }}"
+      - run: python -m pytest
 
   documentation:
     needs: distribution
@@ -205,6 +207,7 @@ jobs:
           --artifact "dist/${{ needs.distribution.outputs.wheel }}"
           --artifact "dist/${{ needs.distribution.outputs.sdist }}"
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: release-evidence-${{ github.sha }}
           path: audit-results.json

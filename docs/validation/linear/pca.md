@@ -12,3 +12,6 @@
   reconstruction, rank-deficiency, and finite-input tests in `test_linear.py`.
 - Rdimtools: not used as an oracle. Out-of-sample map is the fitted affine
   projection; complexity is economy-SVD complexity.
+
+- **Complexity:** `O(min(np^2,n^2p)) time; O(np) memory`; symbols follow the
+  [method catalog](../../methods.md).

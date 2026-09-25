@@ -2,8 +2,14 @@
 
 `believe14` is a paper-first Python library for dimensionality reduction and
 intrinsic-dimension estimation. Version 0.1.0 contains 30 independently
-implemented and validated methods organized into three public families:
+implemented methods organized into three public families:
 `believe14.linear`, `believe14.nonlinear`, and `believe14.estimation`.
+
+`UStatisticDimension` is experimental: its reference implementation has not met
+the prespecified scientific accuracy threshold, and no supported accuracy regime
+is established. The other 29 methods carry validated status for their recorded
+tests and documented scope; this is not a general accuracy or maturity guarantee.
+The [validation evidence](docs/validation/index.md) explains these statuses.
 
 The package follows the scikit-learn estimator protocol while keeping its
 scientific implementations independent. NumPy and SciPy provide numerical
@@ -62,6 +68,10 @@ and repository provenance checks, installed wheel/sdist tests, and the complete
 scientific release audit. The supported release matrix is Python 3.12–3.14 on
 Linux, macOS, and Windows. See [RELEASING.md](RELEASING.md) for the trusted
 TestPyPI, PyPI, GitHub Release, and documentation deployment process.
+
+The full-inventory scientific gate remains failed on `UStatisticDimension`
+accuracy and blocks publication. A separately reported supported-scope result is
+informational and does not override that gate or discard experimental failures.
 
 ## Release trajectory
 

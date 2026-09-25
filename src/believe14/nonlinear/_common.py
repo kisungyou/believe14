@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy import linalg
 
-from believe14._core.linalg import canonicalize_columns, stable_center
+from believe14._core.linalg import canonicalize_columns, scale_squared, stable_center
 from believe14._core.validation import (
     as_float_matrix,
     make_rng,
@@ -100,10 +100,8 @@ def classical_embedding(
             raise FloatingPointError(
                 "The classical-MDS Gram matrix underflows float64."
             )
-    with np.errstate(over="raise", invalid="raise", under="ignore"):
-        squared_scale = distance_scale * distance_scale
-        spectrum = values * squared_scale
-        gram = scaled_gram * squared_scale
+    spectrum = scale_squared(values, distance_scale)
+    gram = scale_squared(scaled_gram, distance_scale)
     return embedding, spectrum, gram, residual_norm, positive_rank, warnings
 
 

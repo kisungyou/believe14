@@ -146,10 +146,17 @@ class CatalogDirective(Directive):
         except ValueError as error:
             raise self.error(str(error)) from error
         builder = environment.app.builder
-        table, body = _table(5, "believe14-catalog")
+        table, body = _table(6, "believe14-catalog")
         _add_header(
             table,
-            ("Estimator", "Approaches", "Supervision", "Out of sample", "Cost"),
+            (
+                "Estimator",
+                "Validation status",
+                "Approaches",
+                "Supervision",
+                "Out of sample",
+                "Cost",
+            ),
         )
         for info in list_estimators(family=family):
             row = nodes.row()
@@ -160,6 +167,7 @@ class CatalogDirective(Directive):
             )
             values = (
                 estimator_link,
+                info.validation_status,
                 ", ".join(sorted(info.approaches)),
                 info.supervision,
                 info.out_of_sample or "transductive / not applicable",
@@ -184,13 +192,23 @@ class ExampleCoverageDirective(Directive):
             raise self.error(str(error)) from error
 
         builder = environment.app.builder
-        table, body = _table(5, "believe14-example-coverage")
-        _add_header(table, ("Estimator", "Family", "Supervision", "Mode", "Card"))
+        table, body = _table(6, "believe14-example-coverage")
+        _add_header(
+            table,
+            ("Estimator", "Validation status", "Family", "Supervision", "Mode", "Card"),
+        )
         for info, card in zip(list_estimators(), cards, strict=True):
             row = nodes.row(ids=[f"believe14-example-{info.name}"])
             target = builder.get_relative_uri(environment.docname, card.docname)
             link = nodes.reference("", "open example", refuri=target, internal=True)
-            for value in (info.name, info.family, info.supervision, _mode(info), link):
+            for value in (
+                info.name,
+                info.validation_status,
+                info.family,
+                info.supervision,
+                _mode(info),
+                link,
+            ):
                 row += _entry(value)
             body += row
         return [table]

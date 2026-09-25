@@ -154,7 +154,14 @@ def _kl_divergence(
 
 
 class TSNE(BaseEstimator):
-    """Exact symmetric dense t-SNE optimized with analytic gradients."""
+    """Exact symmetric dense t-SNE optimized with analytic gradients.
+
+    ``tol`` bounds the maximum absolute gradient entry. ``function_tol``
+    independently bounds relative objective improvement for L-BFGS-B.
+    ``stopping_reason_`` records the solver's criterion; ``gradient_converged_``
+    distinguishes stationarity from objective stagnation. Neither certifies a
+    global optimum of this nonconvex objective.
+    """
 
     def __init__(
         self,
@@ -166,6 +173,7 @@ class TSNE(BaseEstimator):
         init: Literal["pca", "random"] = "pca",
         max_iter: int = 1000,
         tol: float = 1e-7,
+        function_tol: float = 1e-12,
         random_state: int | np.random.Generator | None = None,
     ) -> None:
         self.n_components = n_components
@@ -175,6 +183,7 @@ class TSNE(BaseEstimator):
         self.init = init
         self.max_iter = max_iter
         self.tol = tol
+        self.function_tol = function_tol
         self.random_state = random_state
 
     def _initialize(
@@ -231,6 +240,9 @@ class TSNE(BaseEstimator):
         if self.early_exaggeration_iter < 0:
             raise ValueError("early_exaggeration_iter must be nonnegative.")
         tolerance = validate_positive_real(self.tol, name="tol")
+        function_tolerance = validate_positive_real(
+            self.function_tol, name="function_tol"
+        )
         feature_distances = pairwise_distances(features)
         row_scale = np.max(feature_distances, axis=1)
         if np.any(row_scale <= 0.0):
@@ -243,6 +255,7 @@ class TSNE(BaseEstimator):
             normalized_squared, perplexity
         )
         initial = self._initialize(features, n_components)
+        original_initial = initial.copy()
         consumed = 0
         last_result: optimize.OptimizeResult | None = None
         early_iterations = min(int(self.early_exaggeration_iter), int(self.max_iter))
@@ -255,7 +268,7 @@ class TSNE(BaseEstimator):
                 jac=True,
                 options={
                     "maxiter": early_iterations,
-                    "ftol": tolerance,
+                    "ftol": function_tolerance,
                     "gtol": tolerance,
                 },
             )
@@ -265,14 +278,30 @@ class TSNE(BaseEstimator):
             consumed = int(last_result.nit)
         remaining = max(0, int(self.max_iter) - early_iterations)
         ran_standard_phase = remaining > 0
+        rescaled_initial = False
         if ran_standard_phase:
+            # Exaggerated attraction may contract the entire start toward zero,
+            # a stationary but uninformative configuration for the standard
+            # objective. Restore the initialization's spread while preserving
+            # its geometry before testing an absolute gradient tolerance.
+            initial -= np.mean(initial, axis=0, keepdims=True)
+            spread = float(np.std(initial))
+            if spread < 1e-4:
+                initial = (
+                    original_initial if spread == 0.0 else initial * (1e-4 / spread)
+                )
+                rescaled_initial = True
             last_result = optimize.minimize(
                 _tsne_objective_gradient,
                 initial.ravel(),
                 args=(probabilities, n_components),
                 method="L-BFGS-B",
                 jac=True,
-                options={"maxiter": remaining, "ftol": tolerance, "gtol": tolerance},
+                options={
+                    "maxiter": remaining,
+                    "ftol": function_tolerance,
+                    "gtol": tolerance,
+                },
             )
             consumed += int(last_result.nit)
         if last_result is None:
@@ -287,6 +316,15 @@ class TSNE(BaseEstimator):
         )[1]
         gradient_norm = float(linalg.norm(gradient))
         converged = ran_standard_phase and bool(last_result.success)
+        if not np.isfinite(kl) or not np.isfinite(gradient_norm):
+            raise FloatingPointError(
+                "t-SNE produced a non-finite objective or gradient."
+            )
+        self.stopping_reason_ = str(last_result.message)
+        self.gradient_converged_ = ran_standard_phase and bool(
+            np.max(np.abs(gradient)) <= tolerance
+        )
+        self.early_exaggeration_rescaled_ = rescaled_initial
         self.embedding_: NDArray[np.float64] = embedding
         self.joint_probabilities_ = probabilities
         self.conditional_probabilities_ = conditional
@@ -295,6 +333,8 @@ class TSNE(BaseEstimator):
         self.n_iter_ = consumed
         self.n_components_: int = n_components
         warning = () if converged else (str(last_result.message),)
+        if converged and not self.gradient_converged_:
+            warning = ("Objective tolerance reached before the gradient tolerance.",)
         self.diagnostics_ = diagnostics(
             "exact_symmetric_tsne_lbfgsb",
             converged=converged,

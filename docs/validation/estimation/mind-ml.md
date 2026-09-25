@@ -6,7 +6,7 @@
   [doi:10.1007/978-3-642-23783-6_24](https://doi.org/10.1007/978-3-642-23783-6_24).
 - **Statistic:** `rho_i=T_1(i)/T_{k+1}(i)` and
   `g(r;k,d)=k d r^(d-1)(1-r^d)^(k-1)`. The summed log likelihood is evaluated
-  directly with `log1p`, then maximized continuously on the closed interval
+  with `log(-expm1(d log(rho)))`, then maximized continuously on the closed interval
   `[1,max_dimension]`, including explicit endpoint comparisons.
 - **Convention:** default `k=10`; default upper bound is ambient feature count.
   The continuous maximum is returned without the integer rounding used by some
@@ -18,11 +18,14 @@
   row permutation. Stable row index resolves equal-distance neighbor identity.
 - **Failure policy:** reject zero radii and a tie between first and `(k+1)`-st
   radii because it places `rho` at the singular likelihood boundary. No clipping,
-  jitter, or observation removal is permitted.
+  jitter, or observation removal is permitted. If a required exposed normalized
+  radius underflows to zero, fitting raises `FloatingPointError`. Likelihood
+  and score evaluation preserve small complements of powers near one.
 - **Advertised regime:** locally uniform sampling within the `(k+1)`-neighbor
   ball; finite-sample boundary and high-dimension bias should be inspected via
   the retained likelihood and diagnostics.
-- **Complexity:** `O(n^2 p)` time and `O(n^2)` memory.
+- **Complexity:** `O(n^2(p + log n) + Tn)` time and `O(np + n^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.
 - **Independent evidence:** literal ratio/likelihood/score fixture, closed-bound
   checks, invariance and tie tests, and two-dimensional uniform recovery. The
   implementation was derived independently of Rdimtools.

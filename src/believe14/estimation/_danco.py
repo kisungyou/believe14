@@ -56,7 +56,7 @@ class DANCo(BaseEstimator):
 
         del y
         Xv = validate_features(self, X, reset=True, min_samples=5)
-        n_neighbors = positive_integer(self.n_neighbors, name="n_neighbors", minimum=2)
+        n_neighbors = positive_integer(self.n_neighbors, name="n_neighbors", minimum=3)
         if n_neighbors + 1 >= Xv.shape[0]:
             raise ValueError("n_neighbors + 1 must be smaller than n_samples.")
         if self.max_dimension is None:
@@ -117,9 +117,9 @@ class DANCo(BaseEstimator):
             )
             evaluations += count
             all_converged = all_converged and converged
-        if not np.all(np.isfinite(scores)):
+        if not np.all(np.isfinite(scores)) or np.any(scores < 0.0):
             raise FloatingPointError(
-                "DANCo calibration produced a non-finite KL divergence."
+                "DANCo calibration produced a non-finite or negative KL divergence."
             )
         winner = int(np.argmin(scores))
         warning_messages: tuple[str, ...] = ()

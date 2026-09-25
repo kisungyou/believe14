@@ -22,5 +22,5 @@
 - Evidence: exact low-rank multiresponse prediction, transform dimensions,
   coefficient/intercept identity at ordinary scale, reference-shifted prediction,
   scaling, clone, and non-convergence tests.
-- Complexity and legacy: work scales with the declared component count, NIPALS
-  iterations, samples, and view widths. Rdimtools is not an acceptance oracle.
+- **Complexity:** `O(Tkn(p+q) + (p+q)k^2 + k^3 + pqk)` time and `O(n(p+q) + pq)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

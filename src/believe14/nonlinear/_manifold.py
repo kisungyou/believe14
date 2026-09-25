@@ -18,7 +18,11 @@ from believe14._core.graphs import (
     neighbor_graph,
     require_connected,
 )
-from believe14._core.linalg import canonicalize_columns, centered_svd
+from believe14._core.linalg import (
+    canonicalize_columns,
+    centered_svd,
+    eigh_without_constant,
+)
 from believe14._core.validation import (
     validate_features,
     validate_n_components,
@@ -168,12 +172,9 @@ class LocallyLinearEmbedding(BaseEstimator):
             reconstruction[row] = -(normalized_weights @ offsets)
         identity_minus = np.eye(features.shape[0], dtype=np.float64) - weights
         alignment = identity_minus.T @ identity_minus
-        values, vectors = linalg.eigh(alignment, check_finite=False)
-        order = np.argsort(values, kind="stable")
-        values = np.asarray(values[order], dtype=np.float64)
-        vectors = canonicalize_columns(np.asarray(vectors[:, order], dtype=np.float64))
-        selected = vectors[:, 1 : n_components + 1]
-        selected_values = values[1 : n_components + 1]
+        values, vectors = eigh_without_constant(alignment)
+        selected = vectors[:, :n_components]
+        selected_values = values[:n_components]
         residual = alignment @ selected - selected * selected_values
         scale = float(linalg.norm(alignment, ord=2))
         reconstruction_scale = float(np.max(np.abs(reconstruction), initial=0.0))
@@ -358,12 +359,9 @@ class LocalTangentSpaceAlignment(BaseEstimator):
             local_alignment = np.eye(n_neighbors + 1) - basis @ basis.T
             alignment[np.ix_(local_indices, local_indices)] += local_alignment
         alignment = (alignment + alignment.T) * 0.5
-        values, vectors = linalg.eigh(alignment, check_finite=False)
-        order = np.argsort(values, kind="stable")
-        values = np.asarray(values[order], dtype=np.float64)
-        vectors = canonicalize_columns(np.asarray(vectors[:, order], dtype=np.float64))
-        selected = vectors[:, 1 : n_components + 1]
-        selected_values = values[1 : n_components + 1]
+        values, vectors = eigh_without_constant(alignment)
+        selected = vectors[:, :n_components]
+        selected_values = values[:n_components]
         residual = alignment @ selected - selected * selected_values
         scale = max(1.0, float(linalg.norm(alignment, ord=2)))
         self.embedding_ = selected

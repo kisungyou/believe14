@@ -14,4 +14,7 @@
 - Evidence: literal hand-computed multiclass ratio, selected-column identity,
   label recoding, ties, constant columns, cloning, and finite-input tests.
 - Rdimtools: not used as an oracle. The selector is an inductive column map with
-  `O(np)` fitting complexity.
+  linear scatter accumulation plus label/feature sorting.
+
+- **Complexity:** `O(np + n log n + p log p + Ln) time; O(np) memory`; symbols follow the
+  [method catalog](../../methods.md).

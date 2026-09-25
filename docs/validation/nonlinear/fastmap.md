@@ -12,10 +12,17 @@
   `n * eps` tolerance after normalizing the largest original dissimilarity to one.
   Exhausted residual rank yields identical zero-distance pivots, explicit zero
   trailing coordinates, and a diagnostic warning.
-- **Out of sample:** feature-input fits retain pivot feature vectors and apply the same
-  residual-distance recursion. For a precomputed fit, query input is the rectangular
-  matrix of dissimilarities from each query to every fitted observation; its pivot
-  columns drive the identical cited recursion.
+- **Out of sample:** feature-input fits retain orthonormal residual pivot directions.
+  Both fitting and queries use direct shifted projections, algebraically equal to
+  the cited distance formula, preserving coordinates under large orthogonal offsets.
+  For a precomputed fit, queries supply distances to all fitted observations and
+  use residual-distance recursion. If estimated roundoff in the squared distances
+  exceeds `1e-6` times the squared residual pivot separation, projection resolution
+  is inadequate and the query fails explicitly.
 - **Evidence:** rank-two Euclidean distances and fitted pivot extension are recovered
-  to roundoff. Complexity is `O(k n^2)` time/memory for the current exact dense path.
+  to roundoff. Tests also exercise full-rank orthonormality, training replay, very
+  distant off-axis queries, and rejection of ill-conditioned precomputed queries.
   Rdimtools is not an oracle.
+
+- **Complexity:** `O(n^2 p + k n^2 + Rkn) time; O(np + n^2) memory`; symbols follow the
+  [method catalog](../../methods.md).

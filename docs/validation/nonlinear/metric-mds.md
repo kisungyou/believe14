@@ -13,5 +13,7 @@
 - **Evidence:** the reported objective is recomputed literally from pair distances;
   tests check descent from the classical start, precomputed validation, RNG isolation,
   and truthful diagnostics.
-- **Contract:** transductive; no `transform`. Dense complexity is `O(t n^2 k)` time
-  and `O(n^2)` memory. Rdimtools is not an oracle.
+- **Contract:** transductive; no `transform`. Rdimtools is not an oracle.
+
+- **Complexity:** `O(n^2 p + n^3 + T n^2 k) time; O(np + n^2) memory`; symbols follow the
+  [method catalog](../../methods.md).

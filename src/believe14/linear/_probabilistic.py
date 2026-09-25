@@ -266,7 +266,7 @@ class ProbabilisticPCA(TransformerMixin, BaseEstimator):
                 raise FloatingPointError(
                     "The PPCA covariance spectrum is not representable in float64."
                 ) from error
-        noise = float(np.mean(spectrum[k:]))
+        noise = float(np.sum(spectrum[k:] / (n_features - k)))
         retained = spectrum[:k]
         noise_tolerance = (
             max(n_samples, n_features) * np.finfo(np.float64).eps * float(retained[0])
@@ -291,7 +291,9 @@ class ProbabilisticPCA(TransformerMixin, BaseEstimator):
             check_finite=False,
         )
         model_covariance = loadings @ loadings.T + noise * np.eye(n_features)
-        covariance = centered.T @ centered / float(n_samples)
+        normalized_centered = centered / np.sqrt(float(n_samples))
+        with np.errstate(over="raise", invalid="raise"):
+            covariance = normalized_centered.T @ normalized_centered
         log_likelihood = _gaussian_log_likelihood(
             covariance, model_covariance, n_samples
         )
@@ -322,6 +324,10 @@ class ProbabilisticPCA(TransformerMixin, BaseEstimator):
                 / max(denominator, np.finfo(np.float64).tiny)
             )
             condition = float(np.linalg.cond(scaled_model))
+        if not np.all(np.isfinite([log_likelihood, normalized_residual, condition])):
+            raise FloatingPointError(
+                "PPCA produced a non-finite likelihood or diagnostic."
+            )
         self.diagnostics_ = diagnostics(
             "closed_form_ml",
             objective_value=-log_likelihood,

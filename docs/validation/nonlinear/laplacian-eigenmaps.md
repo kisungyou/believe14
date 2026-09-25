@@ -13,3 +13,6 @@
   permutations, and parameter failures.
 - **Contract:** transductive; no `transform`. Dense reference complexity is cubic in
   `n` after exact graph construction. Rdimtools is not an oracle.
+
+- **Complexity:** `O(n^2 p + n^3) time; O(np + n^2) memory`; symbols follow the
+  [method catalog](../../methods.md).

@@ -9,6 +9,11 @@ intrinsic-dimension estimation. Its 30 public estimators share explicit
 numerical diagnostics, deterministic examples, and validation ledgers that
 freeze the mathematical conventions used by version 0.1.0.
 
+`UStatisticDimension` is experimental because its accuracy has not met the
+prespecified release threshold. The other 29 methods carry validated status for
+their recorded tests and documented scope; this does not guarantee accuracy on
+untested data. See the [validation evidence](validation/index.md).
+
 <div class="landing-grid">
   <a class="landing-card" href="getting_started/index.html">
     <h2>Getting started</h2>

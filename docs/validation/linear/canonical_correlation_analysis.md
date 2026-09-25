@@ -12,5 +12,5 @@
 - Evidence: unit within-view score covariance, diagonal cross-view covariance,
   rank-deficient support, paired-shape validation, and feature-permutation tests.
   Canonical subspaces are the comparison object for repeated correlations.
-- Complexity and legacy: the dense path uses two thin SVDs plus the support
-  cross-SVD. Rdimtools results are not acceptance criteria.
+- **Complexity:** `O(n(p+q)^2 + (p+q)^3)` time and `O(n(p+q) + (p+q)^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

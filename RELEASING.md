@@ -33,6 +33,12 @@ Review `dist/SHA256SUMS` and `build/release-audit.json`. Confirm that the releas
 gate in the audit is `passed: true`. Commit only source files; `dist/`, `build/`,
 and generated documentation are ignored and must never be committed.
 
+`UStatisticDimension` currently has experimental accuracy status and fails one
+unchanged holdout accuracy requirement. This still blocks publication of the
+full inventory. The audit's separate `supported_scope_gate` is informational:
+it cannot authorize a tag or replace `release_gate`. Do not lower thresholds,
+replace holdout seeds, or suppress the experimental failure to make a release pass.
+
 ## Tag and publish
 
 Create the release tag only from a clean, passing `main` commit. It must be an

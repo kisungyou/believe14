@@ -12,5 +12,7 @@
 - **Evidence:** a test recomputes the paper-normalized criterion independently;
   finite-difference development checks cover the analytic gradient, and tests cover
   duplicate rejection, determinism, and truthful solver status.
-- **Contract:** transductive; no `transform`. Complexity is `O(t n^2 k)` time and
-  `O(n^2)` memory. Rdimtools is not an oracle.
+- **Contract:** transductive; no `transform`. Rdimtools is not an oracle.
+
+- **Complexity:** `O(n^2 p + n^3 + E n^2 k) time; O(np + n^2) memory`; symbols follow the
+  [method catalog](../../methods.md).

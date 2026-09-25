@@ -16,5 +16,5 @@
 - Evidence: covariance recovery, posterior-mean identity, positive covariance,
   convergence, and forced non-convergence tests. Factor rotations/signs are not
   identifiable; covariance matrices are the primary comparison object.
-- Complexity and legacy: fitting forms the dense feature covariance and performs
-  rank-`k` EM updates until convergence. Rdimtools is not an oracle.
+- **Complexity:** `O(np^2 + T p^3)` time and `O(np + p^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

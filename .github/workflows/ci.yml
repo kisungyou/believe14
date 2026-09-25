@@ -103,6 +103,7 @@ jobs:
       - run: >-
           python -I scripts/installed_smoke.py
           --expected-version "${{ needs.distribution.outputs.version }}"
+      - run: python -m pytest
 
   minimum-dependencies:
     needs: distribution
@@ -136,6 +137,7 @@ jobs:
       - run: >-
           python -I scripts/installed_smoke.py
           --expected-version "${{ needs.distribution.outputs.version }}"
+      - run: python -m pytest
 
   documentation:
     needs: distribution

@@ -213,3 +213,34 @@ def condition_estimate(matrix: NDArray[np.float64]) -> float:
     """Return a two-norm condition estimate, including infinity for singular input."""
 
     return float(np.linalg.cond(matrix))
+
+
+def scale_squared(values: NDArray[np.float64], scale: float) -> NDArray[np.float64]:
+    """Multiply by scale squared without an overflowing intermediate square."""
+
+    mantissa, exponent = np.frexp(values)
+    scale_mantissa, scale_exponent = np.frexp(scale)
+    with np.errstate(over="raise", invalid="raise", under="ignore"):
+        return np.asarray(
+            np.ldexp(
+                mantissa * scale_mantissa * scale_mantissa,
+                exponent + 2 * scale_exponent,
+            ),
+            dtype=np.float64,
+        )
+
+
+def eigh_without_constant(
+    matrix: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Solve a symmetric eigenproblem constrained to the mean-zero subspace.
+
+    Removing an eigenvector by index does not remove the constant mode when
+    zero is repeated. Helmert contrasts impose that constraint before solving.
+    """
+
+    basis = linalg.helmert(matrix.shape[0], full=False).T
+    reduced = basis.T @ matrix @ basis
+    reduced = (reduced + reduced.T) * 0.5
+    values, vectors = linalg.eigh(reduced, check_finite=False)
+    return np.asarray(values, dtype=np.float64), canonicalize_columns(basis @ vectors)

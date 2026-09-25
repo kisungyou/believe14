@@ -15,5 +15,5 @@
 - Evidence: generalized-eigen residual, isotropic two-class direction, label
   recoding invariance, class/shape errors, and rank diagnostics. Compare
   discriminant projectors, never eigenvector signs.
-- Complexity and legacy: scatter construction is dense and the feature-space
-  generalized eigensystem is cubic in feature count. Rdimtools is not an oracle.
+- **Complexity:** `O(np^2 + p^3 + n log n + Ln)` time and `O(np + p^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

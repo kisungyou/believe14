@@ -358,6 +358,9 @@ class FastMap(TransformerMixin, BaseEstimator):
         pivots = np.zeros((n_components, 2), dtype=np.int64)
         scaled_pivot_distances = np.zeros(n_components, dtype=np.float64)
         active = 0
+        feature_directions = (
+            None if features is None else np.zeros((n_components, features.shape[1]))
+        )
         residual_tolerance = distances.shape[0] * np.finfo(np.float64).eps
         for component in range(n_components):
             first = 0
@@ -381,6 +384,16 @@ class FastMap(TransformerMixin, BaseEstimator):
                 - residual_squared[:, second]
             )
             coordinate = numerator / (2.0 * pivot_distance)
+            if features is not None and feature_directions is not None:
+                direction = (features[second] - features[first]) / distance_scale
+                # Reorthogonalize to avoid magnifying residual pivot cancellation.
+                for _ in range(2):
+                    direction -= feature_directions[:component].T @ (
+                        feature_directions[:component] @ direction
+                    )
+                direction /= linalg.norm(direction)
+                feature_directions[component] = direction
+                coordinate = ((features - features[first]) / distance_scale) @ direction
             scaled_embedding[:, component] = coordinate
             differences = coordinate[:, None] - coordinate[None, :]
             updated = residual_squared - differences * differences
@@ -408,8 +421,9 @@ class FastMap(TransformerMixin, BaseEstimator):
         self.n_components_: int = n_components
         self.n_samples_fit_: int = distances.shape[0]
         self.dissimilarity_matrix_ = distances
-        if features is not None:
+        if features is not None and feature_directions is not None:
             self._fit_features_: NDArray[np.float64] = features
+            self._feature_directions_: NDArray[np.float64] = feature_directions
         warning = ()
         if active < n_components:
             warning = ("FastMap exhausted the positive residual metric rank.",)
@@ -433,7 +447,6 @@ class FastMap(TransformerMixin, BaseEstimator):
         """Embed queries using feature or query-to-training pivot distances."""
 
         check_is_fitted(self, "pivot_indices_")
-        query: NDArray[np.float64] | None = None
         if self.dissimilarity == "precomputed":
             cross_distances = as_float_matrix(X, min_samples=1)
             if cross_distances.shape[1] != self.n_samples_fit_:
@@ -445,31 +458,37 @@ class FastMap(TransformerMixin, BaseEstimator):
                 raise ValueError("Query dissimilarities must be nonnegative.")
         else:
             query = validate_features(self, X, reset=False, min_samples=1)
-            cross_distances = np.empty((query.shape[0], 0), dtype=np.float64)
+            result = np.zeros((query.shape[0], self.n_components_), dtype=np.float64)
+            with np.errstate(over="raise", invalid="raise"):
+                for component in range(self.n_active_components_):
+                    first = self.pivot_indices_[component, 0]
+                    result[:, component] = (
+                        query - self._fit_features_[first]
+                    ) @ self._feature_directions_[component]
+            return result
         scaled_result = np.zeros(
             (cross_distances.shape[0], self.n_components_), dtype=np.float64
         )
         for component in range(self.n_active_components_):
             first, second = self.pivot_indices_[component]
             pivot_distance = self._scaled_pivot_distances_[component]
-            if query is None:
-                with np.errstate(over="raise", invalid="raise"):
-                    first_squared = (
-                        cross_distances[:, first] / self._distance_scale_
-                    ) ** 2
-                    second_squared = (
-                        cross_distances[:, second] / self._distance_scale_
-                    ) ** 2
-            else:
-                first_distances = pairwise_distances(
-                    query, self._fit_features_[[first]]
-                )[:, 0]
-                second_distances = pairwise_distances(
-                    query, self._fit_features_[[second]]
-                )[:, 0]
-                with np.errstate(over="raise", invalid="raise"):
-                    first_squared = (first_distances / self._distance_scale_) ** 2
-                    second_squared = (second_distances / self._distance_scale_) ** 2
+            with np.errstate(over="raise", invalid="raise"):
+                first_squared = (cross_distances[:, first] / self._distance_scale_) ** 2
+                second_squared = (
+                    cross_distances[:, second] / self._distance_scale_
+                ) ** 2
+            # Distances alone cannot recover a small projection after their
+            # squares lose the pivot-scale difference. Fail explicitly instead
+            # of returning arbitrary zero coordinates.
+            roundoff = (
+                np.finfo(np.float64).eps * first_squared
+                + np.finfo(np.float64).eps * second_squared
+            )
+            if np.any(roundoff > 1e-6 * pivot_distance * pivot_distance):
+                raise FloatingPointError(
+                    "FastMap query distances are too ill-conditioned to resolve "
+                    "the pivot projection; use feature-space input."
+                )
             if component:
                 first_squared -= np.sum(
                     (

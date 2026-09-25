@@ -12,7 +12,7 @@ from sklearn.base import BaseEstimator
 from believe14._core.diagnostics import diagnostics
 from believe14._core.validation import validate_features
 
-from ._common import neighbor_distances, unit_interval
+from ._common import log_distance_ratios, neighbor_distances, unit_interval
 
 
 class TwoNN(BaseEstimator):
@@ -45,7 +45,11 @@ class TwoNN(BaseEstimator):
             self.discard_fraction, name="discard_fraction", open_left=True
         )
         distances, _ = neighbor_distances(Xv, 2)
-        ratios = np.sort(distances[:, 1] / distances[:, 0], kind="stable")
+        log_ratios = np.sort(
+            log_distance_ratios(distances[:, 1], distances[:, 0]), kind="stable"
+        )
+        with np.errstate(over="raise", invalid="raise"):
+            ratios = np.exp(log_ratios)
         n_samples = Xv.shape[0]
         n_keep = int(np.floor((1.0 - discard) * n_samples))
         if n_keep < 2 or n_keep >= n_samples:
@@ -53,8 +57,7 @@ class TwoNN(BaseEstimator):
                 "discard_fraction must retain at least two observations and omit "
                 "at least one observation."
             )
-        retained = ratios[:n_keep]
-        x_values = np.log(retained)
+        x_values = log_ratios[:n_keep]
         ranks = np.arange(1, n_keep + 1, dtype=np.float64)
         y_values = -np.log1p(-ranks / float(n_samples))
         denominator = float(x_values @ x_values)

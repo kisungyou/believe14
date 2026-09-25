@@ -60,6 +60,10 @@ class UStatisticDimension(BaseEstimator):
     A local random permutation makes the interleaved paper partitions independent
     of an externally sorted input while preserving their i.i.d. interpretation.
 
+    Accuracy status is experimental: the reference implementation has not met
+    the full scientific accuracy gate, and no supported accuracy regime is
+    established. Successful computation does not certify dimension recovery.
+
     References
     ----------
     Hein, M. and Audibert, J.-Y. (2005), ICML, 289--296.
@@ -154,9 +158,12 @@ class UStatisticDimension(BaseEstimator):
             slopes[dim_index] = slope
             regression_residuals[dim_index] = float(np.sum(weights * residual**2))
         winner = int(np.argmin(np.abs(slopes)))
-        warning_messages: tuple[str, ...] = ()
+        warning_messages: tuple[str, ...] = (
+            "Experimental accuracy: UStatisticDimension has not met the full "
+            "scientific accuracy gate; no supported accuracy regime is established.",
+        )
         if winner in {0, max_dimension - 1}:
-            warning_messages = (
+            warning_messages += (
                 "The flattest U-statistic slope occurs on the candidate boundary.",
             )
         self.dimension_ = float(dimensions[winner])

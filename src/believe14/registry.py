@@ -24,6 +24,7 @@ class _Spec:
     out_of_sample: Literal["linear", "nystrom", "pivot", "native"] | None
     complexity: str
     references: tuple[str, ...]
+    validation_status: Literal["validated", "experimental"] = "validated"
 
     @property
     def module(self) -> str:
@@ -48,7 +49,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT, _T, _I),
         "linear",
-        "O(min(np^2,n^2p))",
+        "O(min(np^2,n^2p)) time; O(np) memory",
         ("Pearson (1901)",),
     ),
     _Spec(
@@ -59,7 +60,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT, _T, _Z),
         "linear",
-        "O(npk)",
+        "O(np + pk + min(pk^2,p^2k)) time; O(np + pk) memory",
         ("Bingham and Mannila (2001)",),
     ),
     _Spec(
@@ -70,7 +71,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT, _T, _I),
         "linear",
-        "O(iterations * (npk + pk^2))",
+        "O(np^2 + T p^3) time; O(np + p^2) memory",
         ("Rubin and Thayer (1982)",),
     ),
     _Spec(
@@ -81,7 +82,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT, _T, _I),
         "linear",
-        "O(min(np^2,n^2p))",
+        "O(np^2 + p^3) time; O(np + p^2) memory",
         ("Tipping and Bishop (1999)",),
     ),
     _Spec(
@@ -92,7 +93,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT, _T, _I, _Z),
         "linear",
-        "O(iterations * npk)",
+        "O(min(np^2,n^2p) + T(nk^2 + k^3) + pk^2) time; O(np + pk) memory",
         ("Hyvarinen (1999)",),
     ),
     _Spec(
@@ -103,7 +104,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT, _T, _Z),
         "linear",
-        "O(iterations * npk)",
+        "O(np^2 + p^3 + T(Ckp^2 + npk + pk^2)) time; O(np + p^2 + T) memory",
         ("Zou, Hastie, and Tibshirani (2006)",),
     ),
     _Spec(
@@ -114,7 +115,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "labels"),
         (_FT, _T, _S),
         "linear",
-        "O(np^2 + p^3)",
+        "O(np^2 + p^3 + n log n + Ln) time; O(np + p^2) memory",
         ("Fisher (1936); Rao (1948)",),
     ),
     _Spec(
@@ -125,7 +126,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("paired_features",),
         (_FT, _T, _P),
         "linear",
-        "O(n(p+q)^2 + (p+q)^3)",
+        "O(n(p+q)^2 + (p+q)^3) time; O(n(p+q) + (p+q)^2) memory",
         ("Hotelling (1936)",),
     ),
     _Spec(
@@ -136,7 +137,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "targets"),
         (_FT, _T, _S, Capability.PREDICT),
         "linear",
-        "O(iterations * npk)",
+        "O(Tkn(p+q) + (p+q)k^2 + k^3 + pqk) time; O(n(p+q) + pq) memory",
         ("Wold et al. (1984)",),
     ),
     _Spec(
@@ -147,7 +148,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "targets"),
         (_FT, _T, _S),
         "linear",
-        "O(np^2 + p^3)",
+        "O(np^2 + p^3 + n log n + Sn) time; O(np + p^2) memory",
         ("Li (1991)",),
     ),
     _Spec(
@@ -158,7 +159,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "targets"),
         (_FT, _T, _S),
         "linear",
-        "O(np^2 + p^3)",
+        "O(np^2 + (S+1)p^3 + n log n + Sn) time; O(np + p^2) memory",
         ("Cook (2000)",),
     ),
     _Spec(
@@ -169,7 +170,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "labels"),
         (_FT, _T, _I, _S, Capability.FEATURE_SELECTION),
         "linear",
-        "O(np)",
+        "O(np + n log n + p log p + Ln) time; O(np) memory",
         ("Duda, Hart, and Stork (2001)",),
     ),
     _Spec(
@@ -180,7 +181,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "precomputed_distances"),
         (_FT, _R),
         None,
-        "O(n^3)",
+        "O(n^2 p + n^3) time; O(np + n^2) memory",
         ("Torgerson (1952)",),
     ),
     _Spec(
@@ -191,7 +192,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "precomputed_distances"),
         (_FT, _R, _Z),
         None,
-        "O(iterations * n^2k)",
+        "O(n^2 p + n^3 + T n^2 k) time; O(np + n^2) memory",
         ("de Leeuw (1977)",),
     ),
     _Spec(
@@ -202,7 +203,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "precomputed_distances"),
         (_FT, _R, _Z),
         None,
-        "O(iterations * n^2k)",
+        "O(n^2 p + n^3 + E n^2 k) time; O(np + n^2) memory",
         ("Sammon (1969)",),
     ),
     _Spec(
@@ -213,7 +214,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "precomputed_distances"),
         (_FT, _T, _R),
         "pivot",
-        "O(n^2 p + k n^2) time; O(n^2) memory",
+        "O(n^2 p + k n^2 + Rkn) time; O(np + n^2) memory",
         ("Faloutsos and Lin (1995)",),
     ),
     _Spec(
@@ -224,7 +225,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "precomputed_kernel"),
         (_FT, _T, _R),
         "nystrom",
-        "O(n^3)",
+        "O(n^2 p + n^3) time; O(np + n^2) memory",
         ("Scholkopf, Smola, and Muller (1998)",),
     ),
     _Spec(
@@ -235,7 +236,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT,),
         None,
-        "O(n^3)",
+        "O(n^2 p + n^3) time; O(np + n^2) memory",
         ("Tenenbaum, de Silva, and Langford (2000)",),
     ),
     _Spec(
@@ -246,7 +247,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT,),
         None,
-        "O(np k^2 + n^3)",
+        "O(n^2 p + n h^2 p + n h^3 + n^3) time; O(np + n^2) memory",
         ("Roweis and Saul (2000)",),
     ),
     _Spec(
@@ -257,7 +258,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT,),
         None,
-        "O(n^3)",
+        "O(n^2 p + n^3) time; O(np + n^2) memory",
         ("Belkin and Niyogi (2003)",),
     ),
     _Spec(
@@ -268,7 +269,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT, _T),
         "nystrom",
-        "O(n^3)",
+        "O(n^2 p + n^3) time; O(np + n^2) memory",
         ("Coifman and Lafon (2006)",),
     ),
     _Spec(
@@ -279,7 +280,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT,),
         None,
-        "O(np k^2 + n^3)",
+        "O(n^2 p + n min(hp^2,h^2p) + n h^2 k + n^3) time; O(np + n^2) memory",
         ("Zhang and Zha (2004)",),
     ),
     _Spec(
@@ -290,7 +291,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT, _Z),
         None,
-        "O(iterations * n^2)",
+        "O(n^2 p + min(np^2,n^2p) + E n^2 k) time; O(np + n^2) memory",
         ("van der Maaten and Hinton (2008)",),
     ),
     _Spec(
@@ -301,7 +302,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT,),
         None,
-        "O(n^3)",
+        "O(n^2 p + n^3 log(t+1) + T n^2 k) time; O(np + n^2) memory",
         ("Moon et al. (2019)",),
     ),
     _Spec(
@@ -312,7 +313,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (),
         None,
-        "O(n^2)",
+        "O(n^2(p + log n) + B n^2) time; O(np + n^2) memory",
         ("Grassberger and Procaccia (1983)",),
     ),
     _Spec(
@@ -323,7 +324,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (),
         None,
-        "O(n^2)",
+        "O(n^2(p + log n)) time; O(np + n^2) memory",
         ("Facco et al. (2017)",),
     ),
     _Spec(
@@ -334,7 +335,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (),
         None,
-        "O(n^2)",
+        "O(n^2(p + log n) + n h^2) time; O(np + n^2) memory",
         ("Levina and Bickel (2004)",),
     ),
     _Spec(
@@ -345,8 +346,9 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_Z,),
         None,
-        "O(n^2)",
+        "O(n^2(p + D)) time; O(np + n^2) memory",
         ("Hein and Audibert (2005)",),
+        validation_status="experimental",
     ),
     _Spec(
         "MiNDML",
@@ -356,7 +358,7 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (),
         None,
-        "O(n^2)",
+        "O(n^2(p + log n) + Tn) time; O(np + n^2) memory",
         ("Lombardi et al. (2011)",),
     ),
     _Spec(
@@ -367,7 +369,8 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_Z,),
         None,
-        "O(n^2 + n k^2)",
+        "O(n^2(p + D^2 + D log n) + n h^2(p + D^2) + DTn + DQ "
+        "+ min(np^2,n^2p)) time; O(n^2 + np + nD + h^2) memory",
         ("Ceruti et al. (2014)",),
     ),
 )
@@ -389,6 +392,7 @@ def _materialize(spec: _Spec) -> EstimatorInfo:
         complexity=spec.complexity,
         references=spec.references,
         estimator=estimator,
+        validation_status=spec.validation_status,
     )
 
 
@@ -398,9 +402,16 @@ def list_estimators(
     capability: Capability | str | None = None,
     supervision: Supervision | None = None,
     approach: str | None = None,
+    validation_status: Literal["validated", "experimental"] | None = None,
 ) -> tuple[EstimatorInfo, ...]:
-    """List explicitly allowlisted public estimators matching all filters."""
+    """List explicitly allowlisted public estimators matching all filters.
 
+    Validation status refers to the evidence recorded in each method's ledger;
+    it does not guarantee accuracy outside the tested scenarios.
+    """
+
+    if validation_status not in {None, "validated", "experimental"}:
+        raise ValueError("validation_status must be 'validated' or 'experimental'.")
     requested_capability = Capability(capability) if capability is not None else None
     infos: list[EstimatorInfo] = []
     for spec in _SPECS:
@@ -409,6 +420,11 @@ def list_estimators(
         if supervision is not None and spec.supervision != supervision:
             continue
         if approach is not None and approach not in spec.approaches:
+            continue
+        if (
+            validation_status is not None
+            and spec.validation_status != validation_status
+        ):
             continue
         if (
             requested_capability is not None
