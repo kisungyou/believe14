@@ -85,6 +85,10 @@ nonfinite, or failed fits block certification. The audit generates evidence in a
 trusted local/CI execution; source and sample hashes alone cannot authenticate
 arbitrary externally supplied results.
 
+The first prospective run passed all nine configurations with 4,500 valid fits.
+The [U-statistic ledger](../validation/estimation/u-statistic-dimension.md)
+records all bounds, the pre-study commit, and the initial evidence fingerprints.
+
 Run the prospective certificate separately with:
 
 ```console

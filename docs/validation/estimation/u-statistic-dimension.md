@@ -1,8 +1,9 @@
 # UStatisticDimension validation ledger
 
-- **Status:** experimental for believe14 0.1.0. The reference equations and
-  numerical implementation are checked; finite-sample accuracy has not met the
-  package's full-inventory release requirements.
+- **Status:** validated for believe14 0.1.0 within the documented scope. The
+  reference equations and numerical implementation are checked, and the
+  prospective 4,500-fit protocol below passed for nine specified low-dimensional
+  configurations. Historical failures and higher-dimensional limitations remain.
 - **Primary source:** Hein and Audibert, *Intrinsic Dimensionality Estimation of
   Submanifolds in Euclidean Space*, ICML 2005, 289–296,
   [doi:10.1145/1102351.1102388](https://doi.org/10.1145/1102351.1102388),
@@ -32,14 +33,14 @@
   statistic, or collapsed log bandwidths. No bandwidth inflation is performed.
 - **Theoretical regime:** smooth sampled submanifold under the paper's regularity
   conditions; at least ten samples are required for five nontrivial scales.
-  Ten is a computational minimum, not an accuracy guarantee. The package does
-  not advertise a validated finite-sample accuracy regime for this estimator.
+  Ten is a computational minimum, not an accuracy guarantee. Empirical accuracy
+  validation covers only the nine exact configurations of the protocol below.
 - **Observed accuracy limitation:** the independent seeds 5701--5705 on the
   uniform dimension-3 flat with 240 observations yield `[2, 3, 3, 3, 4]`.
   RMSE `0.63246` exceeds the prespecified `0.5` release threshold. Both extreme
   results agree with an independent all-partition kernel and weighted-regression
-  calculation. This is a finite-sample accuracy limitation, and the release gate
-  remains failed. Valid arithmetic and convergence do not guarantee recovery.
+  calculation. This finite-sample accuracy limitation remains a failed historical
+  panel. Valid arithmetic and convergence do not guarantee recovery.
 - **Release policy:** the original failed panel remains in `historical_panel_gate`.
   The prospective protocol below requires a separate simultaneous accuracy
   certificate. Evidence integrity, convergence, and finite-output requirements
@@ -113,12 +114,53 @@ specified independent trials and fixed estimator. Dependence between nested
 tail counts does not invalidate this bound. Uncertainty remains positive when
 zero errors are observed.
 
-Every upper RMSE bound must be at most `0.5`; this also bounds absolute population
-bias and population standard deviation by `0.5`. Any failed, missing, noninteger,
-nonfinite, or inconsistent fit prevents certification. The fixed design and
+To define risk even when computation fails, a failed or invalid fit is assigned
+loss `J`; a valid fit has loss `e`. The certificate bounds the root mean square of
+this bounded loss. When fits succeed this is ordinary RMSE, and the bound also
+controls RMSE conditional on a valid fit because failure receives the maximum
+loss. It does not assert that future failure probability is zero.
+
+Every upper bound must be at most `0.5`; this also bounds absolute bias and
+standard deviation among valid fits by `0.5`. Any observed failed, missing,
+noninteger, nonfinite, or inconsistent fit prevents certification regardless of
+the numerical bound. The fixed design and
 source fingerprints are stored before the first prospective run. Later CI
 invocations replay those same seeds and are not new independent evidence.
 The implementation, tests, and frozen constants are in
 `tools/ustatistic_certification.py`; reproduction commands are in the development
 guide. Its decision must be computed from trusted execution and raw fitted
 records, not a caller-supplied pass flag.
+
+## Prospective results
+
+The protocol was committed as
+[`07ab8d4`](https://github.com/kisungyou/believe14/commit/07ab8d4)
+before the new fits. The first study completed on September 25, 2026 using
+Python 3.13.11, NumPy 2.5.2, SciPy 1.18.0, and scikit-learn 1.9.0. All 4,500
+fits produced valid finite outputs. Independent verification regenerated each
+dataset fingerprint and recomputed every decision from the saved raw records.
+
+| Configuration | Observed RMSE | Simultaneous 95% upper bound |
+| --- | ---: | ---: |
+| Uniform flat, dimension 1, 240 samples | 0.00000 | 0.44456 |
+| Uniform flat, dimension 1, 360 samples | 0.00000 | 0.44456 |
+| Uniform flat, dimension 2, 240 samples | 0.04472 | 0.34002 |
+| Uniform flat, dimension 2, 360 samples | 0.00000 | 0.33342 |
+| Uniform flat, dimension 3, 240 samples | 0.18439 | 0.40385 |
+| Uniform flat, dimension 3, 360 samples | 0.04472 | 0.34002 |
+| Noisy flat, latent dimension 2, 300 samples | 0.00000 | 0.33342 |
+| Sphere, dimension 2, 300 samples | 0.00000 | 0.11114 |
+| Swiss roll, dimension 2, 300 samples | 0.00000 | 0.11114 |
+
+Every bound is below `0.5`, so this prospective protocol passes. The original
+five-run panel still fails. The noisy scenario assesses recovery of latent
+dimension at the specified noise scale; its support dimension is the ambient
+dimension. These results do not extend certification to the dimension-5
+configurations above or establish a universal sample-size rule.
+
+The initial raw evidence and frozen design are retained under
+`build/ustatistic-certification/`. The frozen-design SHA-256 is
+`4007efb7da011ef64bfd44b72a2bee98ca3aaef1a7195ab6dd58b8c06dbd50b9`.
+Its evidence SHA-256 is
+`84b7307272a5c58aab360fdd5baa6c622471d90bde3648f0965dacf009ea8186`.
+The scientific CI artifact also contains the full reproducible evidence.

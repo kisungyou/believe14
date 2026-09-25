@@ -4,12 +4,10 @@
 
 - Add an explicitly prospective U-statistic accuracy protocol with 500 fixed
   independent trials per original scenario and simultaneous 95% RMSE upper
-  bounds. Preserve the original failed panels as historical evidence; keep the
-  reference estimator, accuracy limits, and all other required checks unchanged.
-- Mark UStatisticDimension accuracy experimental in registry metadata, diagnostics,
-  and documentation; retain the reference algorithm and original failed release
-  gate. Add a separate informational supported-scope result and a reproducible
-  independent finite-sample characterization.
+  bounds. All nine bounds pass with 4,500 valid fits, restoring validated status
+  for those configurations. Preserve the original failed panels, finite-sample
+  diagnostic warning, and independent higher-dimensional characterization. Keep the reference
+  estimator, accuracy limits, and all other required checks unchanged.
 - Correct DANCo KL cancellation, LTSA/LLE constant-mode selection, FastMap feature
   queries, PPCA covariance accumulation, neighbor log ratios, and MDS rescaling.
 - Reject DANCo neighborhoods with fewer than three neighbors and unrepresentable

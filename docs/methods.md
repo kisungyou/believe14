@@ -7,11 +7,11 @@ family for its complete set of executable method cards, or follow an estimator
 name in the catalog directly to its card.
 
 Validation status refers to the recorded evidence and documented scope, not a
-general accuracy or maturity guarantee. `UStatisticDimension` is experimental:
-its reference implementation has not met the full scientific accuracy gate, and
-no supported accuracy regime is established. Its successful numerical diagnostics
-do not certify dimension recovery. The other 29 entries have validated status for
-their recorded tests. Filter this metadata with
+general accuracy or maturity guarantee. All 30 entries have validated status.
+`UStatisticDimension` passed the prospective accuracy protocol on nine specified
+low-dimensional configurations; its historical failed panel and higher-dimensional
+limitations remain documented. Successful numerical diagnostics alone do not
+certify dimension recovery. Filter this metadata with
 `list_estimators(validation_status="validated")` or
 `list_estimators(validation_status="experimental")`.
 

@@ -181,12 +181,12 @@ def test_registry_filters_and_lookups_are_explicit() -> None:
         list_estimators(capability="not-a-capability")
 
 
-def test_experimental_status_is_public_and_filterable() -> None:
+def test_validation_status_is_public_and_filterable() -> None:
     experimental = list_estimators(validation_status="experimental")
-    assert [info.name for info in experimental] == ["UStatisticDimension"]
-    assert experimental[0] is get_estimator("UStatisticDimension")
+    assert experimental == ()
     validated = list_estimators(validation_status="validated")
-    assert len(validated) == 29
+    assert len(validated) == 30
+    assert get_estimator("UStatisticDimension") in validated
     assert all(info.validation_status == "validated" for info in validated)
     assert list_estimators(family="linear", validation_status="experimental") == ()
     assert (

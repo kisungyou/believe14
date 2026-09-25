@@ -194,7 +194,7 @@ ledger = "estimation/levina-bickel-mle.md"
 name = "UStatisticDimension"
 family = "estimation"
 state = "public"
-validation_status = "experimental"
+validation_status = "validated"
 ledger = "estimation/u-statistic-dimension.md"
 
 [[methods]]

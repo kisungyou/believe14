@@ -348,7 +348,6 @@ _SPECS: tuple[_Spec, ...] = (
         None,
         "O(n^2(p + D)) time; O(np + n^2) memory",
         ("Hein and Audibert (2005)",),
-        validation_status="experimental",
     ),
     _Spec(
         "MiNDML",

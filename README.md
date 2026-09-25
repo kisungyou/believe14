@@ -5,11 +5,11 @@ intrinsic-dimension estimation. Version 0.1.0 contains 30 independently
 implemented methods organized into three public families:
 `believe14.linear`, `believe14.nonlinear`, and `believe14.estimation`.
 
-`UStatisticDimension` is experimental: its reference implementation has not met
-the prespecified scientific accuracy threshold, and no supported accuracy regime
-is established. The other 29 methods carry validated status for their recorded
-tests and documented scope; this is not a general accuracy or maturity guarantee.
-The [validation evidence](docs/validation/index.md) explains these statuses.
+All 30 methods carry validated status for their recorded tests and documented
+scope; this is not a general accuracy or maturity guarantee. `UStatisticDimension`
+passed a prospective 4,500-fit accuracy study on nine specified low-dimensional
+configurations. Its earlier failed panel and higher-dimensional limitations
+remain documented in the [validation evidence](docs/validation/index.md).
 
 The package follows the scikit-learn estimator protocol while keeping its
 scientific implementations independent. NumPy and SciPy provide numerical

@@ -8,15 +8,16 @@ kernelspec: {display_name: Python 3, language: python, name: python3}
 
 # UStatisticDimension
 
-Use this experimental estimator to explore compact-kernel means across
+Use this estimator to explore compact-kernel means across
 prescribed bandwidth and sample-size scales. It is a global, finite-candidate
 estimate and uses a seeded sample ordering.
 
 ```{warning}
-Accuracy status is experimental. The reference implementation fails the
-prespecified release accuracy threshold, and no supported accuracy regime is
-established. Successful computation and reproducible output do not certify
-dimension recovery. See the [validation ledger](../validation/estimation/u-statistic-dimension.md).
+Accuracy validation covers nine specified low-dimensional benchmark configurations.
+Individual fits can still be inaccurate, and higher-dimensional limitations remain.
+Successful computation and reproducible output do not certify dimension recovery.
+See the [validation ledger](../validation/estimation/u-statistic-dimension.md),
+including the original failed panel and the prospective accuracy study.
 ```
 
 ```{code-cell} ipython3

@@ -12,12 +12,12 @@ numerical and output contracts, complexity, independent evidence, and the
 Rdimtools divergence policy. Placeholders fail the release gate.
 
 Public availability and validation status are separate. All 30 entries are
-`public`; 29 have `validation_status="validated"`, meaning their recorded tests
+`public` and have `validation_status="validated"`, meaning their recorded tests
 pass within the documented scope. This label is not a general accuracy or
-maturity guarantee. `UStatisticDimension` has `validation_status="experimental"`
-because its reference implementation fails the prespecified accuracy threshold.
-No supported accuracy regime is established for it. The Python registry,
-manifest, and ledger must agree on this status.
+maturity guarantee. `UStatisticDimension` passed the prospective protocol on nine
+specified low-dimensional configurations. Its original failed panel and
+higher-dimensional limitations remain documented. The Python registry, manifest,
+and ledger must agree on validation status.
 
 The scientific release gate retains all methods and the original accuracy limits.
 The U-statistic validation protocol now requires 500 fixed independent replicates
