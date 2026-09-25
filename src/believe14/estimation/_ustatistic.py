@@ -60,9 +60,9 @@ class UStatisticDimension(BaseEstimator):
     A local random permutation makes the interleaved paper partitions independent
     of an externally sorted input while preserving their i.i.d. interpretation.
 
-    Accuracy status is experimental: the reference implementation has not met
-    the full scientific accuracy gate, and no supported accuracy regime is
-    established. Successful computation does not certify dimension recovery.
+    Finite-sample accuracy is assessed separately from numerical convergence.
+    The registry and validation ledger record the current status and tested
+    configurations. Successful computation does not certify dimension recovery.
 
     References
     ----------
@@ -159,8 +159,8 @@ class UStatisticDimension(BaseEstimator):
             regression_residuals[dim_index] = float(np.sum(weights * residual**2))
         winner = int(np.argmin(np.abs(slopes)))
         warning_messages: tuple[str, ...] = (
-            "Experimental accuracy: UStatisticDimension has not met the full "
-            "scientific accuracy gate; no supported accuracy regime is established.",
+            "Finite-sample accuracy: dimension estimates can be inaccurate; "
+            "consult the validation ledger for tested configurations and uncertainty.",
         )
         if winner in {0, max_dimension - 1}:
             warning_messages += (

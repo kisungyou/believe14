@@ -172,7 +172,7 @@ def test_ustatistic_default_bound_and_interior_solution_diagnostics() -> None:
     interior = UStatisticDimension(max_dimension=3, random_state=4).fit(embedded)
     assert interior.dimension_ == 2.0
     assert len(interior.diagnostics_.warnings) == 1
-    assert "Experimental accuracy" in interior.diagnostics_.warnings[0]
+    assert "Finite-sample accuracy" in interior.diagnostics_.warnings[0]
     assert not any(
         "candidate boundary" in item for item in interior.diagnostics_.warnings
     )

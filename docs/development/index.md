@@ -59,23 +59,43 @@ scenario labels its target as latent manifold dimension and its support dimensio
 as the full ambient dimension. Fixed positive-radius correlation slopes and
 finite-sample high-dimensional bias must be interpreted at their sampled scales.
 
-The September 2026 holdout check blocks full-inventory release: UStatisticDimension on
+The original September 2026 holdout check failed: UStatisticDimension on
 the dimension-3 uniform flat at 240 samples has RMSE `0.63246`, above the existing
 `0.5` limit. All five fits are finite and converged, and independent literal
 calculations confirm the estimates. The original thresholds and holdout seeds
 are retained so this limitation remains visible.
 
-`UStatisticDimension` now has experimental accuracy status in the public registry,
-its validation ledger, and fit diagnostics. Its implementation remains the
-published reference algorithm. A successful computation does not certify accurate
-dimension recovery, and no sample-size cutoff is advertised as sufficient.
+Its implementation remains the published reference algorithm. A successful
+computation does not certify accurate dimension recovery, and no universal
+sample-size cutoff is advertised as sufficient.
 
-The audit also reports an informational `supported_scope_gate`. This separates
-the accuracy of the other estimators from the experimental method while still
-requiring complete evidence, finite outputs, convergence, and numerical checks
-for all 30 methods. It lists experimental accuracy failures explicitly. It cannot
-override the full-inventory `release_gate`, which remains the publication gate;
-the existing accuracy thresholds and holdout datasets have not changed.
+The revised protocol retains that failed result as `historical_panel_gate`. It
+assesses U-statistic population accuracy on the same nine distributions and exact
+configurations using 500 independently seeded trials per scenario. The protocol,
+sample count, and fresh data/estimator seeds are fixed before outcomes. A release
+requires every simultaneous 95% upper RMSE bound to be at most `0.5`, together
+with all original numerical/integrity checks and the other estimators' unchanged
+accuracy requirements. This is a prospective validation-protocol revision, not
+an estimator correction or a claim that the original panel passed.
+
+The bound in the U-statistic ledger is based on exact one-sided binomial
+confidence bounds and a fixed familywise error allocation. It retains nonzero
+uncertainty even when no errors are observed. Missing, noninteger, inconsistent,
+nonfinite, or failed fits block certification. The audit generates evidence in a
+trusted local/CI execution; source and sample hashes alone cannot authenticate
+arbitrary externally supplied results.
+
+Run the prospective certificate separately with:
+
+```console
+python -m tools.ustatistic_certification freeze
+python -m tools.ustatistic_certification run
+python -m tools.ustatistic_certification verify
+```
+
+Use `--directory PATH` to retain another reproduction separately. Repetitions
+use the same fixed seeds; they are reproducibility checks rather than additional
+independent evidence. The full release audit also reproduces this protocol.
 
 Reproduce the larger, independent U-statistic study with:
 

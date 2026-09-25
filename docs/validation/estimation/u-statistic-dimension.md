@@ -40,11 +40,11 @@
   results agree with an independent all-partition kernel and weighted-regression
   calculation. This is a finite-sample accuracy limitation, and the release gate
   remains failed. Valid arithmetic and convergence do not guarantee recovery.
-- **Release policy:** experimental status is visible in registry metadata and
-  every fit's diagnostic warnings. The full-inventory scientific release gate
-  retains the original failed result. A separate informational supported-scope
-  result excludes only experimental accuracy requirements; evidence integrity,
-  convergence, and finite-output requirements still apply to this estimator.
+- **Release policy:** the original failed panel remains in `historical_panel_gate`.
+  The prospective protocol below requires a separate simultaneous accuracy
+  certificate. Evidence integrity, convergence, and finite-output requirements
+  remain mandatory. A permanent finite-sample warning is recorded in fit
+  diagnostics; registry metadata and this ledger state the validation status.
 - **Independent partition check:** across 50 alternative partition seeds, the
   first failing dataset estimates 2 in 38 fits and 3 in 12; the last failing
   dataset estimates 4 in all 50. Replacing partition means by their conditional
@@ -88,3 +88,37 @@ evidence are saved under ignored `build/`, including the original source hashes.
 The original study's recorded source hashes match the implementation with its
 experimental-status metadata. Reusing those scenarios and seeds is a
 reproducibility check, not an additional independent validation sample.
+
+## Prospective accuracy protocol
+
+This is an explicit revision of the validation protocol for the unchanged
+reference estimator. It distinguishes a fixed five-dataset panel from population
+RMSE on nine specified distributions. The original panel continues to fail.
+No bandwidth, partition rule, estimator formula, or numerical limit is changed.
+
+Before inspecting new outcomes, the protocol fixes 500 independent data/estimator
+seed pairs for each original scenario, beginning at seed `926400000`, and the
+exact original sample sizes, ambient dimensions, and candidate ceilings. The
+scope is uniform flats of dimension 1--3 at 240 and 360 samples, the original
+lightly noisy dimension-2 flat, sphere, and Swiss roll at 300 samples. It does not
+cover the dimension-5 limitations documented above or arbitrary unseen data.
+
+For integer absolute estimation error `e` bounded by `J`, the exact identity is
+`MSE = sum(j=1..J) (2*j-1) P(e >= j)`. The nine configurations have bounds
+`J = [4,4,3,3,3,3,3,1,1]`, totaling 25 binomial tails. Each tail receives a
+one-sided [Clopper--Pearson upper confidence bound](https://www.barestatistics.nl/uploads/1/1/7/9/11797954/clopper__pearson_1934.pdf)
+with error allocation `0.05/25`. A union bound therefore gives at least 95%
+simultaneous coverage for all nine population MSE upper bounds, assuming the
+specified independent trials and fixed estimator. Dependence between nested
+tail counts does not invalidate this bound. Uncertainty remains positive when
+zero errors are observed.
+
+Every upper RMSE bound must be at most `0.5`; this also bounds absolute population
+bias and population standard deviation by `0.5`. Any failed, missing, noninteger,
+nonfinite, or inconsistent fit prevents certification. The fixed design and
+source fingerprints are stored before the first prospective run. Later CI
+invocations replay those same seeds and are not new independent evidence.
+The implementation, tests, and frozen constants are in
+`tools/ustatistic_certification.py`; reproduction commands are in the development
+guide. Its decision must be computed from trusted execution and raw fitted
+records, not a caller-supplied pass flag.

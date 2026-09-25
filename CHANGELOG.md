@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an explicitly prospective U-statistic accuracy protocol with 500 fixed
+  independent trials per original scenario and simultaneous 95% RMSE upper
+  bounds. Preserve the original failed panels as historical evidence; keep the
+  reference estimator, accuracy limits, and all other required checks unchanged.
 - Mark UStatisticDimension accuracy experimental in registry metadata, diagnostics,
   and documentation; retain the reference algorithm and original failed release
   gate. Add a separate informational supported-scope result and a reproducible

@@ -205,7 +205,7 @@ def test_experimental_status_is_public_and_filterable() -> None:
 
 
 @pytest.mark.parametrize("max_dimension", [1, 3])
-def test_experimental_accuracy_warning_preserves_computational_status(
+def test_accuracy_warning_preserves_computational_status(
     max_dimension: int,
 ) -> None:
     rng = np.random.default_rng(415)
@@ -214,10 +214,10 @@ def test_experimental_accuracy_warning_preserves_computational_status(
     assert model.diagnostics_.converged is True
     assert np.isfinite(model.slopes_).all()
     accuracy_warnings = [
-        item for item in model.diagnostics_.warnings if "Experimental accuracy" in item
+        item for item in model.diagnostics_.warnings if "Finite-sample accuracy" in item
     ]
     assert len(accuracy_warnings) == 1
-    assert "no supported accuracy regime" in accuracy_warnings[0]
+    assert "tested configurations and uncertainty" in accuracy_warnings[0]
     boundary_warnings = [
         item for item in model.diagnostics_.warnings if "candidate boundary" in item
     ]

@@ -431,21 +431,19 @@ def test_supported_scope_still_requires_other_estimators_accuracy(
     assert decision["supported_scope"]["passed"] is False
 
 
-def test_experimental_accuracy_policy_agrees_with_registry() -> None:
-    from tools.release_audit import EXPERIMENTAL_ACCURACY_METHODS
+def test_larger_sample_accuracy_policy_has_an_explicit_method_scope() -> None:
+    from tools.release_audit import LARGER_SAMPLE_ACCURACY_METHODS
 
-    from believe14.registry import list_estimators
+    from believe14.registry import get_estimator
 
-    assert (
-        EXPERIMENTAL_ACCURACY_METHODS
-        == {item.name for item in list_estimators(validation_status="experimental")}
-        == {"UStatisticDimension"}
-    )
+    assert {"UStatisticDimension"} == LARGER_SAMPLE_ACCURACY_METHODS
+    assert get_estimator("UStatisticDimension").family == "estimation"
 
 
 @pytest.mark.parametrize("failed_stage", [None, "calibration", "holdout", "integrity"])
-def test_audit_keeps_strict_and_supported_outcomes_separate(
-    monkeypatch, failed_stage: str | None
+@pytest.mark.parametrize("certificate_passed", [False, True])
+def test_audit_requires_fresh_certificate_and_keeps_historical_outcomes(
+    monkeypatch, failed_stage: str | None, certificate_passed: bool
 ) -> None:
     import json
 
@@ -465,13 +463,24 @@ def test_audit_keeps_strict_and_supported_outcomes_separate(
     monkeypatch.setattr(
         release_audit, "_release_decision", lambda *a, **kw: next(decisions)
     )
+    monkeypatch.setattr(
+        release_audit,
+        "_run_ustatistic_certification",
+        lambda: ({"complete": True}, {"passed": certificate_passed}),
+    )
     result = release_audit.run_audit()
-    assert result["release_gate"]["passed"] is (failed_stage is None)
-    assert result["supported_scope_gate"]["passed"] is (failed_stage != "integrity")
+    assert result["historical_panel_gate"]["passed"] is (failed_stage is None)
+    assert result["release_gate"]["passed"] is (
+        failed_stage != "integrity" and certificate_passed
+    )
+    assert result["release_gate"]["historical_panel_passed"] is (failed_stage is None)
+    assert result["release_gate"]["required_checks"]["passed"] is (
+        failed_stage != "integrity"
+    )
     json.dumps(result, allow_nan=False)
 
 
-def test_audit_cli_cannot_publish_with_only_supported_scope_passing(
+def test_audit_cli_cannot_publish_with_only_one_gate_passing(
     monkeypatch, tmp_path
 ) -> None:
     import json
@@ -482,7 +491,7 @@ def test_audit_cli_cannot_publish_with_only_supported_scope_passing(
     output = tmp_path / "audit.json"
     result = {
         "release_gate": {"passed": False},
-        "supported_scope_gate": {"passed": True},
+        "ustatistic_certification": {"passed": True},
     }
     monkeypatch.setattr(release_audit, "run_audit", lambda **kw: result)
     monkeypatch.setattr(sys, "argv", ["release_audit", "--output", str(output)])

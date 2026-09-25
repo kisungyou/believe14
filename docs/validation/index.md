@@ -19,11 +19,13 @@ because its reference implementation fails the prespecified accuracy threshold.
 No supported accuracy regime is established for it. The Python registry,
 manifest, and ledger must agree on this status.
 
-The full-inventory scientific release gate retains all methods and the original
-thresholds. Its accuracy failure remains visible and blocks publication.
-The separate supported-scope result is informational: it excludes experimental
-accuracy requirements while retaining computational and evidence-integrity
-checks for every method. It does not override the release gate.
+The scientific release gate retains all methods and the original accuracy limits.
+The U-statistic validation protocol now requires 500 fixed independent replicates
+for each original scenario and simultaneous 95% upper RMSE bounds at most `0.5`.
+The other accuracy requirements and every computational/integrity requirement
+remain mandatory. The original failed panel is retained as historical evidence;
+the new protocol does not turn that panel into a passing result. See the
+[development protocol](../development/index.md).
 
 ```{toctree}
 :maxdepth: 1

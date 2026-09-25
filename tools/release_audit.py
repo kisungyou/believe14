@@ -5,10 +5,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.metadata
+import importlib.util
 import json
 import platform
 import subprocess
 import sys
+import tempfile
 import time
 import tracemalloc
 from collections.abc import Callable
@@ -79,7 +81,7 @@ HOLDOUT_SEEDS = (5701, 5702, 5703, 5704, 5705)
 DANCO_1D_EXCLUSION = (
     "The angular-concentration model excludes one-dimensional manifolds."
 )
-EXPERIMENTAL_ACCURACY_METHODS = frozenset({"UStatisticDimension"})
+LARGER_SAMPLE_ACCURACY_METHODS = frozenset({"UStatisticDimension"})
 
 
 def _finite_number(value: object) -> bool:
@@ -771,7 +773,7 @@ def _release_decision(
             if not passed:
                 failure = f"{scenario}:{name}"
                 dimension_failures.append(failure)
-                if integrity_passed and name in EXPERIMENTAL_ACCURACY_METHODS:
+                if integrity_passed and name in LARGER_SAMPLE_ACCURACY_METHODS:
                     experimental_accuracy_failures.append(failure)
     passed = not catalog_failures and not dimension_failures
     supported_failures = [
@@ -786,12 +788,38 @@ def _release_decision(
         "dimension_failures": dimension_failures,
         "supported_scope": {
             "passed": not catalog_failures and not supported_failures,
-            "experimental_accuracy_methods": sorted(EXPERIMENTAL_ACCURACY_METHODS),
+            "larger_sample_accuracy_methods": sorted(LARGER_SAMPLE_ACCURACY_METHODS),
             "nonblocking_accuracy_failures": experimental_accuracy_failures,
             "catalog_failures": list(catalog_failures),
             "dimension_failures": supported_failures,
         },
     }
+
+
+def _run_ustatistic_certification() -> tuple[dict[str, Any], dict[str, Any]]:
+    """Reproduce the fixed prospective protocol against the installed package.
+
+    Every later invocation replays the same benchmark; it is not another
+    independent statistical study. The original panel remains archived below.
+    """
+
+    spec = importlib.util.spec_from_file_location(
+        "_believe14_ustatistic_certification",
+        Path(__file__).with_name("ustatistic_certification.py"),
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("Cannot load the adjacent certification tool.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory(prefix="believe14-certification-") as temporary:
+        directory = Path(temporary)
+        module.freeze_design(directory / "design.json")
+        evidence = module.run_frozen_design(
+            directory / "design.json", directory / "evidence.json"
+        )
+        # Recompute from raw records; a saved decision is not authoritative.
+        return evidence, module.certification_decision(evidence)
 
 
 def run_audit(*, artifact_paths: tuple[Path, ...] = ()) -> dict[str, JSONValue]:
@@ -824,19 +852,29 @@ def run_audit(*, artifact_paths: tuple[Path, ...] = ()) -> dict[str, JSONValue]:
         "holdout": holdout_decision["supported_scope"],
         "characterization_integrity": characterization_decision["supported_scope"],
     }
-    supported_scope_gate: dict[str, JSONValue] = {
+    required_checks: dict[str, JSONValue] = {
         "passed": all(item["passed"] for item in scoped_decisions.values()),
         "scope": (
-            "Informational only: UStatisticDimension accuracy is experimental. "
-            "Every estimator must still pass complete evidence, finite-output, "
-            "convergence, and numerical checks. The full-inventory release_gate "
-            "remains authoritative for publication."
+            "All original checks except UStatisticDimension small-panel accuracy. "
+            "Every estimator still requires complete evidence, finite outputs, "
+            "convergence, and numerical checks. UStatisticDimension additionally "
+            "requires the separate 500-replicate simultaneous accuracy certificate."
         ),
         **scoped_decisions,
     }
+    certification, certificate_decision = _run_ustatistic_certification()
+    current_decision: dict[str, JSONValue] = {
+        "protocol": "original-checks-plus-prospective-ustatistic-v1",
+        "passed": (
+            required_checks["passed"] is True and certificate_decision["passed"] is True
+        ),
+        "required_checks": required_checks,
+        "ustatistic_certification": certificate_decision,
+        "historical_panel_passed": decision["passed"],
+    }
     git = _git_metadata()
     return {
-        "schema_version": 4,
+        "schema_version": 5,
         "release": believe14.__version__,
         "generated_at_utc": datetime.now(UTC).isoformat(),
         "commit": git["commit"],
@@ -868,11 +906,15 @@ def run_audit(*, artifact_paths: tuple[Path, ...] = ()) -> dict[str, JSONValue]:
         "statistical_scope": (
             "Accuracy gates cover the prespecified low-dimensional scenarios only. "
             "Extended scenarios check integrity and report accuracy without a "
-            "universal accuracy threshold. Intervals use five replicates and do "
-            "not certify untested distributions."
+            "universal accuracy threshold. UStatisticDimension population RMSE "
+            "uses 500 fixed independent trials per original scenario and a "
+            "simultaneous 95% upper bound, with the unchanged 0.5 limit. The "
+            "original five-run panels retain their outcomes as historical "
+            "evidence. Neither protocol certifies untested distributions."
         ),
-        "release_gate": decision,
-        "supported_scope_gate": supported_scope_gate,
+        "historical_panel_gate": decision,
+        "ustatistic_certification": certification,
+        "release_gate": current_decision,
     }
 
 

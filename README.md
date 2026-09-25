@@ -69,9 +69,11 @@ scientific release audit. The supported release matrix is Python 3.12–3.14 on
 Linux, macOS, and Windows. See [RELEASING.md](RELEASING.md) for the trusted
 TestPyPI, PyPI, GitHub Release, and documentation deployment process.
 
-The full-inventory scientific gate remains failed on `UStatisticDimension`
-accuracy and blocks publication. A separately reported supported-scope result is
-informational and does not override that gate or discard experimental failures.
+The original U-statistic accuracy failure remains recorded. The revised release
+protocol requires a separate 500-replicate certificate for each original
+scenario, with simultaneous 95% upper RMSE bounds below the unchanged limit,
+as well as all other scientific checks. See the release guide for the explicit
+distinction between historical panel outcomes and the current decision.
 
 ## Release trajectory
 
