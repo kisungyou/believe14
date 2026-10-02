@@ -15,6 +15,7 @@ from believe14._core.linalg import (
     canonicalize_columns,
     centered_svd,
     centering_state,
+    restore_centering,
     stable_center,
     stable_mean,
 )
@@ -291,7 +292,12 @@ class CanonicalCorrelationAnalysis(TransformerMixin, BaseEstimator):
 
 
 class PLSRegression(TransformerMixin, BaseEstimator):
-    """NIPALS PLS2 regression with regression-mode X and Y deflation."""
+    """NIPALS PLS2 regression with regression-mode X and Y deflation.
+
+    Each component starts from the leading right singular vector of the
+    residual cross-covariance, preventing convergence to a subdominant mode.
+    ``tol`` and ``max_iter`` control the subsequent NIPALS weight updates.
+    """
 
     def __init__(
         self,
@@ -359,7 +365,20 @@ class PLSRegression(TransformerMixin, BaseEstimator):
                     "The Y residual became numerically zero before all requested "
                     "PLS components were extracted."
                 )
-            u = Yk[:, int(np.argmax(column_norms))].copy()
+            # A target column can be orthogonal to the dominant mode (or to
+            # all of X). A stationary power iteration then need not solve the
+            # leading-vector problem. An SVD start certifies the intended mode.
+            x_max = float(np.max(np.abs(Xk)))
+            y_max = float(np.max(np.abs(Yk)))
+            if x_max == 0.0:
+                raise ValueError("The X residual became numerically zero.")
+            cross = (Xk / x_max).T @ (Yk / y_max)
+            _, singular_values, right_t = linalg.svd(
+                cross, full_matrices=False, check_finite=False
+            )
+            if singular_values[0] == 0.0:
+                raise ValueError("The X and Y residuals have zero cross-covariance.")
+            u = Yk @ right_t[0]
             converged = False
             w = np.zeros(n_features)
             for iteration in range(1, int(self.max_iter) + 1):
@@ -479,7 +498,7 @@ class PLSRegression(TransformerMixin, BaseEstimator):
     def predict(self, X: ArrayLike) -> NDArray[np.float64]:
         check_is_fitted(self, ("_standardized_coef_", "x_mean_"))
         Xv = validate_features(self, X, reset=False, min_samples=1)
-        prediction = np.asarray(
+        prediction = restore_centering(
             (
                 apply_centering(
                     Xv, self._x_center_reference_, self._x_center_offset_mean_
@@ -487,8 +506,9 @@ class PLSRegression(TransformerMixin, BaseEstimator):
                 / self.x_scale_
             )
             @ self._standardized_coef_
-            * self.y_scale_
-            + self.y_mean_
+            * self.y_scale_,
+            self._y_center_reference_,
+            self._y_center_offset_mean_,
         )
         return prediction[:, 0] if self._y_was_1d else prediction
 

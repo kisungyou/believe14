@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Initialize PLS components from the dominant residual cross-covariance direction
+  so target ordering or a subdominant initial direction cannot produce a false
+  failure or an incorrect converged component.
+- Restore fitted centering references and offsets in PCA, FastICA, FactorAnalysis,
+  ProbabilisticPCA reconstructions and PLS predictions, preserving representable
+  variation around large offsets.
+- Explicitly exclude the stationary direction in LaplacianEigenmaps and
+  DiffusionMap, preserving weighted orthogonality and diffusion distances when
+  graph connections are weak.
+- Match t-SNE perplexities through a bracketed log-bandwidth search, preserving
+  distance information across wide scales and rejecting genuinely infeasible
+  tied-distance targets.
 - Add an explicitly prospective U-statistic accuracy protocol with 500 fixed
   independent trials per original scenario and simultaneous 95% RMSE upper
   bounds. All nine bounds pass with 4,500 valid fits, restoring validated status

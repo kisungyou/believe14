@@ -14,6 +14,7 @@ from believe14._core.linalg import (
     centered_svd,
     centering_state,
     numerical_rank,
+    restore_centering,
     stable_mean,
 )
 from believe14._core.validation import (
@@ -117,7 +118,11 @@ class PCA(TransformerMixin, BaseEstimator):
             scores = (
                 scores * self.singular_values_ / np.sqrt(float(self.n_samples_ - 1))
             )
-        return np.asarray(scores @ self.components_ + self.mean_, dtype=np.float64)
+        return restore_centering(
+            scores @ self.components_,
+            self._center_reference_,
+            self._center_offset_mean_,
+        )
 
     def get_feature_names_out(
         self, input_features: ArrayLike | None = None

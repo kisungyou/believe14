@@ -31,6 +31,7 @@ from believe14._core.validation import (
 )
 
 from ._common import classical_embedding, output_names
+from ._spectral import eigh_without_stationary
 
 
 class Isomap(BaseEstimator):
@@ -267,12 +268,15 @@ class LaplacianEigenmaps(BaseEstimator):
             raise FloatingPointError("The graph contains a zero-degree vertex.")
         degree = np.diag(degree_values)
         laplacian = degree - affinity
-        values, vectors = linalg.eigh(laplacian, degree, check_finite=False)
-        order = np.argsort(values, kind="stable")
-        values = np.asarray(values[order], dtype=np.float64)
-        vectors = canonicalize_columns(np.asarray(vectors[:, order], dtype=np.float64))
-        selected = vectors[:, 1 : n_components + 1]
-        selected_values = values[1 : n_components + 1]
+        square_root_degree = np.sqrt(degree_values)
+        symmetric = (
+            laplacian / square_root_degree[:, None] / square_root_degree[None, :]
+        )
+        values, vectors = eigh_without_stationary(symmetric, square_root_degree)
+        selected = canonicalize_columns(
+            vectors[:, :n_components] / square_root_degree[:, None]
+        )
+        selected_values = values[:n_components]
         residual = laplacian @ selected - (degree @ selected) * selected_values
         scale = max(
             1.0,

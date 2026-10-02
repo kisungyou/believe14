@@ -16,6 +16,7 @@ from believe14._core.linalg import (
     centered_svd,
     centering_state,
     numerical_rank,
+    restore_centering,
     stable_center,
     stable_mean,
 )
@@ -229,7 +230,11 @@ class FactorAnalysis(TransformerMixin, BaseEstimator):
             raise ValueError(f"X must have exactly {self.n_components_} columns.")
         if not np.all(np.isfinite(scores)):
             raise ValueError("X must contain only finite values.")
-        return np.asarray(scores @ self.loadings_.T + self.mean_)
+        return restore_centering(
+            scores @ self.loadings_.T,
+            self._center_reference_,
+            self._center_offset_mean_,
+        )
 
     def get_feature_names_out(
         self, input_features: ArrayLike | None = None
@@ -352,7 +357,11 @@ class ProbabilisticPCA(TransformerMixin, BaseEstimator):
             raise ValueError(f"X must have exactly {self.n_components_} columns.")
         if not np.all(np.isfinite(scores)):
             raise ValueError("X must contain only finite values.")
-        return np.asarray(scores @ self.loadings_.T + self.mean_)
+        return restore_centering(
+            scores @ self.loadings_.T,
+            self._center_reference_,
+            self._center_offset_mean_,
+        )
 
     def get_feature_names_out(
         self, input_features: ArrayLike | None = None

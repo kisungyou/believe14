@@ -9,6 +9,9 @@
   to identity and deterministic eigenvector signs.
 - Transform: posterior mean `(W^T W+sigma^2 I)^-1 W^T (x-mu)`;
   reconstruction is `W z + mu`.
+  Reconstruction restores the mean through the fitted reference and offset
+  with compensated addition, preserving representable variation around a large
+  offset. Truly unrepresentable reconstructed outputs fail explicitly.
 - Failure rule: a requested component not separated from the isotropic-noise
   eigenspace, or an ML noise estimate on the scale-relative singular zero
   boundary, is rejected rather than perturbed.

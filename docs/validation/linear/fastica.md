@@ -11,6 +11,9 @@
 - Initialization/randomness: local Gaussian generator; integer seeds replay and
   global RNG state is untouched. Stop on maximum sign-invariant row alignment.
 - Transform/inverse: fitted unmixing and its Moore--Penrose mixing matrix.
+  Reconstruction restores the fitted reference and mean offset with compensated
+  addition; this preserves representable observations around a large offset.
+  Truly unrepresentable reconstructed outputs fail explicitly.
 - Evidence: whitening covariance, exact full-rank inverse, non-Gaussian mixture,
   seeded replay, and forced non-convergence tests. Source order and sign are
   non-identifiable and are never raw-coordinate acceptance criteria.

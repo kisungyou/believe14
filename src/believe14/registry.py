@@ -137,7 +137,8 @@ _SPECS: tuple[_Spec, ...] = (
         ("features", "targets"),
         (_FT, _T, _S, Capability.PREDICT),
         "linear",
-        "O(Tkn(p+q) + (p+q)k^2 + k^3 + pqk) time; O(n(p+q) + pq) memory",
+        "O(Tkn(p+q) + knpq + k min(p,q)^2 max(p,q) + (p+q)k^2 + k^3 + pqk) "
+        "time; O(n(p+q) + pq) memory",
         ("Wold et al. (1984)",),
     ),
     _Spec(

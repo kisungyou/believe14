@@ -6,6 +6,13 @@
   standard deviation (`ddof=1`). At each component, alternate X weights and Y
   scores, normalize the X weight to unit norm, then use regression-mode
   deflation `X <- X-t p^T` and `Y <- Y-t q^T`.
+- Initialization: a thin SVD of the residual cross-covariance supplies its
+  leading right singular vector; the initial Y score is its target projection.
+  Each residual block is divided by its largest magnitude before forming the
+  cross-covariance, which preserves the singular directions without introducing
+  an avoidable raw-product overflow. This initialization avoids zero starts and
+  subdominant stationary points that can arise from selecting one Y column.
+  The subsequent NIPALS updates retain the public `tol` and `max_iter` limits.
 - Mapping: X rotations are `R=W(P^T W)^-1`; predictions in standardized space
   are `X R Q^T`, then target scaling and the fitted intercept are restored.
   `predict` evaluates this affine map through the fitted reference-shifted
@@ -13,6 +20,9 @@
   but avoids catastrophic cancellation at large common offsets. The coefficient
   attributes record that algebraic affine form; direct raw evaluation is not the
   numerical prediction contract on ill-conditioned offsets.
+  Target means are restored through their fitted reference and offset with
+  compensated addition; a rounded `y_mean_` therefore does not erase
+  representable target variation. Unrepresentable predictions fail explicitly.
   Passing targets to `transform` returns both X scores and target projection
   scores; `fit_transform(X, y)` follows that paired convention.
 - Stopping: sign-invariant X-weight change; every component must converge.
@@ -22,5 +32,8 @@
 - Evidence: exact low-rank multiresponse prediction, transform dimensions,
   coefficient/intercept identity at ordinary scale, reference-shifted prediction,
   scaling, clone, and non-convergence tests.
-- **Complexity:** `O(Tkn(p+q) + (p+q)k^2 + k^3 + pqk)` time and `O(n(p+q) + pq)` peak memory;
+  Regression tests also compare multi-component predictions against independent
+  direct-SVD regression deflation, including target permutations, orthogonal
+  first targets, tiny leading-mode contamination, and nearly tied modes.
+- **Complexity:** `O(Tkn(p+q) + knpq + k min(p,q)^2 max(p,q) + (p+q)k^2 + k^3 + pqk)` time and `O(n(p+q) + pq)` peak memory;
   symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

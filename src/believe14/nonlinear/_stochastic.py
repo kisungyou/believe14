@@ -27,23 +27,59 @@ from believe14._core.validation import (
 
 from ._common import initialize_embedding, output_names, smacof
 
+_GAUSSIAN_EXPONENT_LIMIT = float(
+    np.ceil(-np.log(np.finfo(np.float64).smallest_subnormal)) + 1.0
+)
+
+
+def _gaussian_probabilities(
+    log_squared_gaps: NDArray[np.float64], log_precision: float
+) -> tuple[NDArray[np.float64], float]:
+    """Evaluate a Gaussian row without materializing its squared distances.
+
+    Gaps are squared distances minus the row minimum; zero gaps have log -inf.
+    Exponents beyond the float64 zero-weight threshold may be capped because
+    their exponential is already unrepresentable, even as a subnormal number.
+    """
+
+    log_exponents = np.minimum(
+        log_squared_gaps + log_precision, np.log(_GAUSSIAN_EXPONENT_LIMIT)
+    )
+    with np.errstate(under="ignore"):
+        unnormalized = np.exp(-np.exp(log_exponents))
+    probabilities = unnormalized / np.sum(unnormalized, dtype=np.float64)
+    positive = probabilities > 0.0
+    entropy = -float(
+        np.sum(
+            probabilities[positive] * np.log(probabilities[positive]),
+            dtype=np.float64,
+        )
+    )
+    return np.asarray(probabilities, dtype=np.float64), entropy
+
 
 def _joint_probabilities(
-    squared_distances: NDArray[np.float64], perplexity: float
+    squared_distances: NDArray[np.float64], perplexity: float, *, squared: bool = True
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
-    """Compute exact symmetrized t-SNE probabilities by entropy matching."""
+    """Match Gaussian-row entropies with bracketed log-precision bisection.
 
-    n_samples = squared_distances.shape[0]
+    Accept squared distances by default. Passing unsquared distances avoids
+    losing small positive gaps when a row spans extreme distance scales.
+    """
+
+    distances = squared_distances
+    n_samples = distances.shape[0]
     target_entropy = np.log(perplexity)
     entropy_tolerance = 1e-8
-    conditional = np.zeros_like(squared_distances)
+    conditional = np.zeros_like(distances)
     entropy_residuals = np.empty(n_samples, dtype=np.float64)
     all_indices = np.arange(n_samples)
     for row in range(n_samples):
         mask = all_indices != row
-        distances = squared_distances[row, mask]
-        shifted = distances - float(np.min(distances))
-        minimum_mask = shifted == 0.0
+        row_distances = distances[row, mask]
+        minimum = float(np.min(row_distances))
+        gaps = row_distances - minimum
+        minimum_mask = gaps == 0.0
         minimum_multiplicity = int(np.count_nonzero(minimum_mask))
         minimum_entropy = np.log(float(minimum_multiplicity))
         maximum_entropy = np.log(float(n_samples - 1))
@@ -60,30 +96,43 @@ def _joint_probabilities(
             probabilities = minimum_mask.astype(np.float64)
             probabilities /= minimum_multiplicity
         else:
-            beta = 1.0
-            lower = 0.0
-            upper = np.inf
-            probabilities = np.empty_like(distances)
-            for _ in range(100):
-                unnormalized = np.exp(-beta * shifted)
-                normalizer = float(np.sum(unnormalized, dtype=np.float64))
-                probabilities = unnormalized / normalizer
-                positive = probabilities > 0.0
-                entropy = -float(
-                    np.sum(
-                        probabilities[positive] * np.log(probabilities[positive]),
-                        dtype=np.float64,
-                    )
+            positive_gaps = ~minimum_mask
+            log_gaps = np.full(n_samples - 1, -np.inf, dtype=np.float64)
+            log_gaps[positive_gaps] = np.log(gaps[positive_gaps])
+            if not squared:
+                # d² - d_min² = (d - d_min) d (1 + d_min / d).
+                # Every factor stays representable, even when the product or
+                # a preliminary normalization followed by squaring would not.
+                log_gaps[positive_gaps] += np.log(row_distances[positive_gaps])
+                log_gaps[positive_gaps] += np.log1p(
+                    minimum / row_distances[positive_gaps]
                 )
+            # At the lower endpoint, beta * max(gap) <= tolerance / 4, so
+            # H >= log(n - 1) - tolerance / 4. At the upper endpoint every
+            # nonminimal Gaussian weight rounds to zero, giving H = log(m).
+            # These bounds depend on the row's dynamic range, not on an
+            # arbitrary number of doublings from beta = 1.
+            lower = float(
+                np.log(entropy_tolerance / 4.0) - np.max(log_gaps[positive_gaps])
+            )
+            upper = float(
+                np.log(_GAUSSIAN_EXPONENT_LIMIT) - np.min(log_gaps[positive_gaps])
+            )
+            while True:
+                midpoint = lower + (upper - lower) * 0.5
+                if midpoint in (lower, upper):
+                    raise FloatingPointError(
+                        f"Could not resolve the Gaussian precision for row {row} "
+                        "at float64 accuracy."
+                    )
+                probabilities, entropy = _gaussian_probabilities(log_gaps, midpoint)
                 difference = entropy - target_entropy
                 if abs(difference) <= entropy_tolerance:
                     break
                 if difference > 0.0:
-                    lower = beta
-                    beta = beta * 2.0 if np.isinf(upper) else (beta + upper) * 0.5
+                    lower = midpoint
                 else:
-                    upper = beta
-                    beta = (beta + lower) * 0.5
+                    upper = midpoint
         positive = probabilities > 0.0
         achieved_entropy = -float(
             np.sum(
@@ -250,9 +299,8 @@ class TSNE(BaseEstimator):
                 "t-SNE input is degenerate; at least two distinct observations "
                 "are required."
             )
-        normalized_squared = (feature_distances / row_scale[:, None]) ** 2
         probabilities, conditional, entropy_residuals = _joint_probabilities(
-            normalized_squared, perplexity
+            feature_distances, perplexity, squared=False
         )
         initial = self._initialize(features, n_components)
         original_initial = initial.copy()

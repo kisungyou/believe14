@@ -3,8 +3,16 @@
 - **Status:** validated exact-dense implementation for believe14 0.1.0.
 - **Primary source:** van der Maaten and Hinton (2008),
   [JMLR 9:2579-2605](https://www.jmlr.org/papers/v9/vandermaaten08a.html).
-- **Probabilities:** each Gaussian conditional distribution is binary-searched to
-  entropy `log(perplexity)`, then `P_ij = (p_j|i + p_i|j)/(2n)`. Low-dimensional
+- **Probabilities:** each Gaussian conditional distribution is matched to entropy
+  `log(perplexity)` by bisection in log precision, then
+  `P_ij = (p_j|i + p_i|j)/(2n)`. The bracket comes from the row's smallest and
+  largest positive squared-distance gaps: its endpoints approach the uniform
+  and tied-nearest distributions within float64 precision. Raw distances are
+  converted to log squared-distance gaps using the factored difference of
+  squares, avoiding overflow and loss of small gaps under row normalization.
+  Bandwidth search stops on its entropy criterion or explicitly reports
+  floating-point stagnation; its work is independent of the embedding optimizer's
+  `max_iter`. Low-dimensional
   probabilities use the one-degree-of-freedom Student kernel over all ordered pairs.
   Perplexity is restricted to `[1, n_samples - 1]`; every row's achieved entropy is
   checked to absolute tolerance `1e-8`. An unattainable entropy caused by tied nearest
@@ -30,7 +38,10 @@
   symmetry/normalization/zero diagonal, the analytic objective gradient against
   central differences, seed replay, legacy-global-RNG isolation, invalid and
   tied-infeasible perplexity, finite KL, and the absence of an out-of-sample API.
-  Three independent Gaussian seeds are also checked for small final gradients
+  Independent scalar roots check the bandwidths of a dense cluster beside a
+  distant outlier; further checks cover exact uniform scaling, squared-distance
+  gaps at the subnormal boundary, and raw distances whose squares cannot be
+  represented. Three independent Gaussian seeds are also checked for small final gradients
   and negligible improvement under a tighter optimization restart.
   Rdimtools is not an oracle.
 

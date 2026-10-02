@@ -34,6 +34,7 @@ from believe14._core.validation import (
 )
 
 from ._common import output_names, validate_unit_interval
+from ._spectral import eigh_without_stationary
 
 
 def _validate_kernel_matrix(X: ArrayLike) -> NDArray[np.float64]:
@@ -262,29 +263,30 @@ class DiffusionMap(TransformerMixin, BaseEstimator):
             raise FloatingPointError(
                 "The density-normalized diffusion kernel has a nonpositive degree."
             )
-        symmetric = normalized_kernel / np.sqrt(degree[:, None] * degree[None, :])
-        values, vectors = linalg.eigh(symmetric, check_finite=False)
-        order = np.argsort(values, kind="stable")[::-1]
-        values = np.asarray(values[order], dtype=np.float64)
-        vectors = canonicalize_columns(np.asarray(vectors[:, order], dtype=np.float64))
+        square_root_degree = np.sqrt(degree)
+        symmetric = (
+            normalized_kernel
+            / square_root_degree[:, None]
+            / square_root_degree[None, :]
+        )
+        values, vectors = eigh_without_stationary(
+            symmetric, square_root_degree, largest=True
+        )
         scale = max(1.0, float(linalg.norm(symmetric, ord=2)))
         threshold = np.finfo(np.float64).eps * len(features) * scale * 100.0
-        selected_values = values[1 : n_components + 1]
+        selected_values = values[:n_components]
         if np.any(np.abs(selected_values) <= threshold):
             raise ValueError(
                 "A selected diffusion eigenvalue is numerically zero and has no "
                 "stable Nyström extension."
             )
         normalization = np.sqrt(float(np.sum(degree, dtype=np.float64)))
-        right_vectors = vectors / np.sqrt(degree)[:, None] * normalization
-        selected_right = right_vectors[:, 1 : n_components + 1]
+        selected_vectors = vectors[:, :n_components]
+        selected_right = selected_vectors / square_root_degree[:, None] * normalization
         embedding = (
             selected_right * (selected_values ** int(self.diffusion_time))[None, :]
         )
-        residual = (
-            symmetric @ vectors[:, : n_components + 1]
-            - vectors[:, : n_components + 1] * values[: n_components + 1]
-        )
+        residual = symmetric @ selected_vectors - selected_vectors * selected_values
         self.embedding_: NDArray[np.float64] = np.asarray(embedding, dtype=np.float64)
         self.eigenvalues_: NDArray[np.float64] = selected_values
         self.eigenvectors_: NDArray[np.float64] = selected_right
@@ -298,7 +300,7 @@ class DiffusionMap(TransformerMixin, BaseEstimator):
         self.diagnostics_ = diagnostics(
             "symmetric_markov_eigh",
             residual_norm=float(linalg.norm(residual) / scale),
-            numerical_rank=int(np.count_nonzero(np.abs(values) > threshold)) - 1,
+            numerical_rank=int(np.count_nonzero(np.abs(values) > threshold)),
         )
         return self
 

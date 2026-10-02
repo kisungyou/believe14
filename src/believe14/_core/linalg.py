@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import fsum
 
 import numpy as np
 from numpy.typing import NDArray
@@ -98,6 +99,61 @@ def apply_centering(
                 ((X / scale - reference / scale) - offset_mean / scale) * scale,
                 dtype=np.float64,
             )
+
+
+def restore_centering(
+    centered: NDArray[np.float64],
+    reference: NDArray[np.float64],
+    offset_mean: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """Restore a fitted mean without rounding its reference and offset first.
+
+    Two compensated additions retain low-order variation, including when the
+    offset cancels the reference. Rare overflowing partial sums use scalar
+    accurate summation with opposite signs first, without rescaling away a
+    representable small residual. Unrepresentable final values fail explicitly.
+    """
+
+    if not all(
+        np.all(np.isfinite(value)) for value in (centered, reference, offset_mean)
+    ):
+        raise FloatingPointError("Restoring observations requires finite summands.")
+    try:
+        with np.errstate(over="raise", invalid="raise"):
+            partial = centered + offset_mean
+            offset_virtual = partial - centered
+            partial_error = (centered - (partial - offset_virtual)) + (
+                offset_mean - offset_virtual
+            )
+            result = partial + reference
+            reference_virtual = result - partial
+            result_error = (partial - (result - reference_virtual)) + (
+                reference - reference_virtual
+            )
+            return np.asarray(result + (partial_error + result_error), dtype=np.float64)
+    except FloatingPointError:
+        values, offsets, references = np.broadcast_arrays(
+            centered, offset_mean, reference
+        )
+        restored = np.empty(values.shape, dtype=np.float64)
+        for index in np.ndindex(values.shape):
+            a, b, c = (
+                float(values[index]),
+                float(offsets[index]),
+                float(references[index]),
+            )
+            # Summing opposite signs first avoids fsum's intermediate-overflow
+            # error when the final sum itself is representable.
+            terms = (a, b, c)
+            if (a < 0.0) == (b < 0.0) and (a < 0.0) != (c < 0.0):
+                terms = (a, c, b)
+            try:
+                restored[index] = fsum(terms)
+            except OverflowError as error:
+                raise FloatingPointError(
+                    "The restored observations are not representable in float64."
+                ) from error
+        return restored
 
 
 def canonicalize_columns(matrix: NDArray[np.float64]) -> NDArray[np.float64]:
