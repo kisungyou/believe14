@@ -215,7 +215,7 @@ def test_documentation_hierarchy_is_complete_and_canonical() -> None:
         assert {entry.target for entry in graph[owner]} == cards_by_family[family]
 
     development_children = {entry.target for entry in graph["development/index"]}
-    assert development_children == {"contributing", "validation/index"}
+    assert development_children == {"contributing", "validation/index", "changelog"}
     validation_ledgers = {
         path.relative_to(DOCS).with_suffix("").as_posix()
         for path in (DOCS / "validation").glob("*/*.md")
@@ -224,7 +224,13 @@ def test_documentation_hierarchy_is_complete_and_canonical() -> None:
 
     canonical_documents = (
         root_targets
-        | {"scientific-contract", "references", "contributing", "validation/index"}
+        | {
+            "scientific-contract",
+            "references",
+            "contributing",
+            "validation/index",
+            "changelog",
+        }
         | guide_docnames
         | family_targets
         | card_docnames

@@ -70,6 +70,14 @@ map. PCA, FA, PPCA, and FastICA additionally expose a mathematically defined
 exact inverse. Components are identifiable only up to the equivalence stated
 in each method's validation ledger.
 
+Use the fitted `inverse_transform` to restore the original feature units. PCA,
+FA, PPCA, and FastICA retain a reference and a small centering offset, then
+combine them with compensated arithmetic during reconstruction. This reduces
+rounding loss when small variations sit around a large baseline. Manually adding
+the rounded `mean_` to centered coordinates can lose those variations. FA and
+PPCA still return reconstructions under their fitted latent models; restoring
+the offset does not remove model approximation or noise.
+
 Use the cards for [PCA](../examples/pca.md),
 [Gaussian projection](../examples/gaussian_random_projection.md),
 [Factor Analysis](../examples/factor_analysis.md),

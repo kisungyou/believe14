@@ -12,5 +12,5 @@
 - Evidence: linear central-subspace recovery, strict-monotone response
   invariance, covariance whitening, spectral residual, and tied-response tests.
   Compare subspace projectors; the fitted affine map is the out-of-sample rule.
-- Complexity and legacy: dense covariance formation and feature eigendecomposition
-  dominate the calculation. Rdimtools values are not acceptance criteria.
+- **Complexity:** `O(np^2 + p^3 + n log n + Sn)` time and `O(np + p^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

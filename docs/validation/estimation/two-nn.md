@@ -17,10 +17,13 @@
   row permutation. Positive neighbor-distance ties are retained; stable row index
   decides neighbor identity, while only radii enter the statistic.
 - **Failure policy:** reject duplicates/zero radii, a trim retaining fewer than
-  two values, or retained ratios all equal to one. No jitter is added.
+  two values, or retained ratios all equal to one. Log ratios use differences
+  of logarithms with `log1p` for close radii. Unrepresentable exposed ratios raise
+  `FloatingPointError`. No jitter is added.
 - **Advertised regime:** density is approximately constant on the scale of the
   second neighbor; heavy tails rely on the declared trimming convention.
-- **Complexity:** `O(n^2 p)` time and `O(n^2)` memory for exact dense neighbors.
+- **Complexity:** `O(n^2(p + log n))` time and `O(np + n^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.
 - **Independent evidence:** literal empirical-CDF regression fixture,
   transformation/permutation tests, RNG-independent behavior, singular-tie
   rejection, and two-dimensional uniform recovery. Rdimtools is not an oracle.

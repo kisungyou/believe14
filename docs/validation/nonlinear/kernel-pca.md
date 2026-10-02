@@ -20,5 +20,5 @@
   Gram, remains stable under a large common translation, and training cross-kernel
   projection reproduces fitted coordinates. Symmetry, shape, definiteness, and rank
   failures are tested. Rdimtools is not an oracle.
-- **Complexity:** the exact dense path costs `O(n^2 p + n^3)` time and `O(n^2)`
-  memory, with kernel-evaluation cost replacing `O(n^2 p)` where appropriate.
+- **Complexity:** `O(n^2 p + n^3)` time and `O(np + n^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

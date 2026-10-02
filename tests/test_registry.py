@@ -6,10 +6,12 @@ import re
 import tomllib
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 import believe14
 from believe14.api import Capability, FitDiagnostics
+from believe14.estimation import UStatisticDimension
 from believe14.registry import (
     get_estimator,
     list_estimators,
@@ -110,6 +112,9 @@ def test_manifest_registry_exports_and_ledgers_agree() -> None:
     assert {record["state"] for record in records} == {"public"}
     expected_ledgers: set[Path] = set()
     for record in records:
+        status = record["validation_status"]
+        assert status in {"validated", "experimental"}
+        assert status == get_estimator(record["name"]).validation_status
         relative = Path(record["ledger"])
         assert not relative.is_absolute() and ".." not in relative.parts
         assert relative.parts[0] == record["family"]
@@ -119,8 +124,8 @@ def test_manifest_registry_exports_and_ledgers_agree() -> None:
         text = ledger.read_text(encoding="utf-8")
         assert text.startswith(f"# {record['name']} validation ledger\n")
         assert len(text) >= 500, f"Validation ledger is too small: {ledger}"
-        assert re.search(r"(?im)^-\s+(?:\*\*)?status:(?:\*\*)?\s+validated\b", text), (
-            f"Ledger does not have validated status: {ledger}"
+        assert re.search(rf"(?im)^-\s+(?:\*\*)?status:(?:\*\*)?\s+{status}\b", text), (
+            f"Ledger status does not match manifest and registry: {ledger}"
         )
         assert not PLACEHOLDER.search(text), f"Ledger contains a placeholder: {ledger}"
         for concept, pattern in LEDGER_CONCEPTS.items():
@@ -168,9 +173,52 @@ def test_registry_filters_and_lookups_are_explicit() -> None:
     assert list_estimators(approach="does_not_exist") == ()
     assert get_estimator("PCA") is get_estimator("believe14.linear.PCA")
     assert get_estimator("FastMap").complexity == (
-        "O(n^2 p + k n^2) time; O(n^2) memory"
+        "O(n^2 p + k n^2 + Rkn) time; O(np + n^2) memory"
     )
     with pytest.raises(KeyError, match="Unknown public estimator"):
         get_estimator("NotAnEstimator")
     with pytest.raises(ValueError):
         list_estimators(capability="not-a-capability")
+
+
+def test_validation_status_is_public_and_filterable() -> None:
+    experimental = list_estimators(validation_status="experimental")
+    assert experimental == ()
+    validated = list_estimators(validation_status="validated")
+    assert len(validated) == 30
+    assert get_estimator("UStatisticDimension") in validated
+    assert all(info.validation_status == "validated" for info in validated)
+    assert list_estimators(family="linear", validation_status="experimental") == ()
+    assert (
+        list_estimators(
+            family="estimation",
+            capability="stochastic",
+            validation_status="experimental",
+        )
+        == experimental
+    )
+    assert {info.name for info in validated + experimental} == set(
+        public_estimator_names()
+    )
+    with pytest.raises(ValueError, match="validation_status"):
+        list_estimators(validation_status="unknown")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("max_dimension", [1, 3])
+def test_accuracy_warning_preserves_computational_status(
+    max_dimension: int,
+) -> None:
+    rng = np.random.default_rng(415)
+    data = np.column_stack((rng.normal(size=(160, 2)), np.zeros(160)))
+    model = UStatisticDimension(max_dimension=max_dimension, random_state=91).fit(data)
+    assert model.diagnostics_.converged is True
+    assert np.isfinite(model.slopes_).all()
+    accuracy_warnings = [
+        item for item in model.diagnostics_.warnings if "Finite-sample accuracy" in item
+    ]
+    assert len(accuracy_warnings) == 1
+    assert "tested configurations and uncertainty" in accuracy_warnings[0]
+    boundary_warnings = [
+        item for item in model.diagnostics_.warnings if "candidate boundary" in item
+    ]
+    assert bool(boundary_warnings) == (model.dimension_ in {1, max_dimension})

@@ -25,6 +25,16 @@ Install the published package from PyPI:
 python -m pip install believe14
 ```
 
+This website includes the unreleased changes on `main`. To use those changes,
+install the current development version from the repository:
+
+```console
+python -m pip install "believe14 @ git+https://github.com/kisungyou/believe14.git@main"
+```
+
+See the [changelog](../changelog.md) for the distinction between unreleased
+corrections and published versions.
+
 ## A complete PCA workflow
 
 This offline example constructs a small rank-two dataset, fits a centered-SVD

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from math import comb, fsum
 from numbers import Integral, Real
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.integrate import quad
 from scipy.optimize import minimize_scalar
-from scipy.special import digamma, i0e, i1e
+from scipy.special import i0e, i1e
 
 from believe14._core.distances import exact_neighbors, pairwise_distances
 
@@ -73,6 +73,8 @@ def normalized_minimum_distances(
 
     distances, indices = neighbor_distances(X, n_neighbors + 1)
     ratios = distances[:, 0] / distances[:, -1]
+    if np.any(ratios == 0.0):
+        raise FloatingPointError("Normalized neighbor radii underflow float64.")
     if np.any(ratios >= 1.0):
         raise ValueError(
             "The first and (k + 1)-st neighbor radii tie. The normalized "
@@ -85,16 +87,31 @@ def normalized_minimum_distances(
     )
 
 
+def log_distance_ratios(
+    numerator: NDArray[np.float64], denominator: NDArray[np.float64]
+) -> NDArray[np.float64]:
+    """Log ratios without forming potentially unrepresentable quotients.
+
+    Close radii use log1p to retain differences lost by subtracting logarithms.
+    """
+
+    first, second = np.broadcast_arrays(numerator, denominator)
+    result = np.log(first) - np.log(second)
+    close = np.abs(result) < np.log(2.0)
+    result[close] = np.log1p((first[close] - second[close]) / second[close])
+    return np.asarray(result, dtype=np.float64)
+
+
 def mind_log_likelihood(
     dimension: float, ratios: NDArray[np.float64], n_neighbors: int
 ) -> float:
     """Log likelihood for ``g(r; k, d)`` from Lombardi et al."""
 
-    powers = np.power(ratios, dimension)
+    logs = np.log(ratios)
     return float(
-        ratios.size * np.log(float(n_neighbors) * dimension)
-        + (dimension - 1.0) * np.sum(np.log(ratios))
-        + (n_neighbors - 1.0) * np.sum(np.log1p(-powers))
+        ratios.size * (np.log(float(n_neighbors)) + np.log(dimension))
+        + (dimension - 1.0) * np.sum(logs)
+        + (n_neighbors - 1.0) * np.sum(np.log(-np.expm1(dimension * logs)))
     )
 
 
@@ -108,7 +125,7 @@ def mind_score(
     return float(
         ratios.size / dimension
         + np.sum(logs)
-        - (n_neighbors - 1.0) * np.sum(powers * logs / (1.0 - powers))
+        - (n_neighbors - 1.0) * np.sum(powers * logs / -np.expm1(dimension * logs))
     )
 
 
@@ -138,6 +155,8 @@ def maximize_mind_likelihood(
     )
     estimate, objective = min(candidates, key=lambda item: item[1])
     score = abs(mind_score(estimate, ratios, n_neighbors))
+    if not np.all(np.isfinite([estimate, objective, score])):
+        raise FloatingPointError("The MiND likelihood or score is not finite.")
     return estimate, -objective, score, bool(result.success), int(result.nfev)
 
 
@@ -205,25 +224,60 @@ def sample_unit_ball(
 def norm_kl(
     data_dimension: float, reference_dimension: float, n_neighbors: int
 ) -> float:
-    """Closed-form minimum-distance KL divergence, paper Equation (3)."""
+    """Minimum-distance KL using an exponentially weighted density integral.
 
+    With u = r**data_dimension and t = -k*log(1-u), t has unit
+    exponential density. This avoids the exponentially ill-conditioned
+    alternating binomial sum in Equation (3), including for large k.
+    """
+
+    if (
+        not np.all(np.isfinite([data_dimension, reference_dimension]))
+        or min(data_dimension, reference_dimension) <= 0.0
+    ):
+        raise ValueError("KL dimensions must be finite and positive.")
+    k = positive_integer(n_neighbors, name="n_neighbors")
     ratio = reference_dimension / data_dimension
-    harmonic_k = fsum(1.0 / index for index in range(1, n_neighbors + 1))
-    harmonic_previous = fsum(1.0 / index for index in range(1, n_neighbors))
-    alternating = fsum(
-        (-1.0) ** index * comb(n_neighbors, index) * float(digamma(1.0 + index / ratio))
-        for index in range(n_neighbors + 1)
-    )
-    value = (
-        harmonic_k * ratio
-        - 1.0
-        - harmonic_previous
-        - np.log(ratio)
-        - (n_neighbors - 1.0) * alternating
-    )
-    if value < 0.0 and value > -1e-10:
+    if not np.isfinite(ratio) or ratio <= 0.0:
+        raise FloatingPointError("The dimension ratio is not representable.")
+    if ratio == 1.0:
         return 0.0
-    return float(value)
+    delta = ratio - 1.0
+    log_ratio = np.log(ratio)
+
+    def integrand(t: float) -> float:
+        if t == 0.0 or t > 740.0:
+            return 0.0
+        z = t / k
+        log_u = np.log(-np.expm1(-z)) if z < np.log(2.0) else np.log1p(-np.exp(-z))
+        if k == 1:
+            complement = 0.0
+        elif abs(delta) < 0.5:
+            # Compute the ratio of complements directly near equal dimensions.
+            complement = np.log1p(-np.exp(log_u + z) * np.expm1(delta * log_u))
+        else:
+            powered_log = ratio * log_u
+            log_complement = (
+                np.log(-np.expm1(powered_log))
+                if powered_log > -np.log(2.0)
+                else np.log1p(-np.exp(powered_log))
+            )
+            complement = log_complement + z
+        return float(np.exp(-t) * (-log_ratio - delta * log_u - (k - 1) * complement))
+
+    result = quad(
+        integrand, 0.0, np.inf, epsabs=2e-12, epsrel=2e-10, limit=200, full_output=1
+    )
+    value, error = float(result[0]), float(result[1])
+    if (
+        len(result) != 3
+        or not np.all(np.isfinite([value, error]))
+        or error > max(1e-10, abs(value) * 1e-8)
+    ):
+        raise FloatingPointError("Minimum-distance KL integration did not converge.")
+    if value < -max(error * 4.0, 1e-12):
+        raise FloatingPointError("Minimum-distance KL is significantly negative.")
+    return max(0.0, value)
 
 
 def _log_i0(value: float) -> float:
@@ -246,4 +300,8 @@ def von_mises_kl(
     )
     if value < 0.0 and value > -1e-10:
         return 0.0
+    if not np.isfinite(value) or value < 0.0:
+        raise FloatingPointError(
+            "The von Mises KL is non-finite or significantly negative."
+        )
     return float(value)

@@ -12,4 +12,7 @@
   zero mean, variance `1/k`, and Johnson--Lindenstrauss distance concentration.
 - Evidence: literal matrix-product, replay, scaling, and global-state tests.
 - Rdimtools: not used as an oracle. The fitted matrix defines the native
-  out-of-sample map; cost is `O(npk)`.
+  out-of-sample map; its transform costs `O(npk)`.
+
+- **Complexity:** `O(np + pk + min(pk^2,p^2k)) time; O(np + pk) memory`; symbols follow the
+  [method catalog](../../methods.md).

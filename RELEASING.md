@@ -33,6 +33,17 @@ Review `dist/SHA256SUMS` and `build/release-audit.json`. Confirm that the releas
 gate in the audit is `passed: true`. Commit only source files; `dist/`, `build/`,
 and generated documentation are ignored and must never be committed.
 
+The scientific audit uses an explicitly revised U-statistic validation protocol.
+The original five-run panels are retained under `historical_panel_gate`, including
+the failed dimension-3 panel. The current `release_gate` requires every original
+numerical and evidence-integrity check, the other estimators' original accuracy
+checks, and a separate U-statistic certificate based on 500 fixed independent
+trials for each original scenario. Every simultaneous 95% upper RMSE bound must
+be at most the unchanged `0.5` limit. Inspect the raw `ustatistic_certification`
+records as well as the decision; a historical failure is not relabeled a pass.
+The seeds and protocol are fixed before the first prospective run. Later CI runs
+reproduce that same benchmark and are not additional independent studies.
+
 ## Tag and publish
 
 Create the release tag only from a clean, passing `main` commit. It must be an

@@ -27,23 +27,59 @@ from believe14._core.validation import (
 
 from ._common import initialize_embedding, output_names, smacof
 
+_GAUSSIAN_EXPONENT_LIMIT = float(
+    np.ceil(-np.log(np.finfo(np.float64).smallest_subnormal)) + 1.0
+)
+
+
+def _gaussian_probabilities(
+    log_squared_gaps: NDArray[np.float64], log_precision: float
+) -> tuple[NDArray[np.float64], float]:
+    """Evaluate a Gaussian row without materializing its squared distances.
+
+    Gaps are squared distances minus the row minimum; zero gaps have log -inf.
+    Exponents beyond the float64 zero-weight threshold may be capped because
+    their exponential is already unrepresentable, even as a subnormal number.
+    """
+
+    log_exponents = np.minimum(
+        log_squared_gaps + log_precision, np.log(_GAUSSIAN_EXPONENT_LIMIT)
+    )
+    with np.errstate(under="ignore"):
+        unnormalized = np.exp(-np.exp(log_exponents))
+    probabilities = unnormalized / np.sum(unnormalized, dtype=np.float64)
+    positive = probabilities > 0.0
+    entropy = -float(
+        np.sum(
+            probabilities[positive] * np.log(probabilities[positive]),
+            dtype=np.float64,
+        )
+    )
+    return np.asarray(probabilities, dtype=np.float64), entropy
+
 
 def _joint_probabilities(
-    squared_distances: NDArray[np.float64], perplexity: float
+    squared_distances: NDArray[np.float64], perplexity: float, *, squared: bool = True
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
-    """Compute exact symmetrized t-SNE probabilities by entropy matching."""
+    """Match Gaussian-row entropies with bracketed log-precision bisection.
 
-    n_samples = squared_distances.shape[0]
+    Accept squared distances by default. Passing unsquared distances avoids
+    losing small positive gaps when a row spans extreme distance scales.
+    """
+
+    distances = squared_distances
+    n_samples = distances.shape[0]
     target_entropy = np.log(perplexity)
     entropy_tolerance = 1e-8
-    conditional = np.zeros_like(squared_distances)
+    conditional = np.zeros_like(distances)
     entropy_residuals = np.empty(n_samples, dtype=np.float64)
     all_indices = np.arange(n_samples)
     for row in range(n_samples):
         mask = all_indices != row
-        distances = squared_distances[row, mask]
-        shifted = distances - float(np.min(distances))
-        minimum_mask = shifted == 0.0
+        row_distances = distances[row, mask]
+        minimum = float(np.min(row_distances))
+        gaps = row_distances - minimum
+        minimum_mask = gaps == 0.0
         minimum_multiplicity = int(np.count_nonzero(minimum_mask))
         minimum_entropy = np.log(float(minimum_multiplicity))
         maximum_entropy = np.log(float(n_samples - 1))
@@ -60,30 +96,43 @@ def _joint_probabilities(
             probabilities = minimum_mask.astype(np.float64)
             probabilities /= minimum_multiplicity
         else:
-            beta = 1.0
-            lower = 0.0
-            upper = np.inf
-            probabilities = np.empty_like(distances)
-            for _ in range(100):
-                unnormalized = np.exp(-beta * shifted)
-                normalizer = float(np.sum(unnormalized, dtype=np.float64))
-                probabilities = unnormalized / normalizer
-                positive = probabilities > 0.0
-                entropy = -float(
-                    np.sum(
-                        probabilities[positive] * np.log(probabilities[positive]),
-                        dtype=np.float64,
-                    )
+            positive_gaps = ~minimum_mask
+            log_gaps = np.full(n_samples - 1, -np.inf, dtype=np.float64)
+            log_gaps[positive_gaps] = np.log(gaps[positive_gaps])
+            if not squared:
+                # d² - d_min² = (d - d_min) d (1 + d_min / d).
+                # Every factor stays representable, even when the product or
+                # a preliminary normalization followed by squaring would not.
+                log_gaps[positive_gaps] += np.log(row_distances[positive_gaps])
+                log_gaps[positive_gaps] += np.log1p(
+                    minimum / row_distances[positive_gaps]
                 )
+            # At the lower endpoint, beta * max(gap) <= tolerance / 4, so
+            # H >= log(n - 1) - tolerance / 4. At the upper endpoint every
+            # nonminimal Gaussian weight rounds to zero, giving H = log(m).
+            # These bounds depend on the row's dynamic range, not on an
+            # arbitrary number of doublings from beta = 1.
+            lower = float(
+                np.log(entropy_tolerance / 4.0) - np.max(log_gaps[positive_gaps])
+            )
+            upper = float(
+                np.log(_GAUSSIAN_EXPONENT_LIMIT) - np.min(log_gaps[positive_gaps])
+            )
+            while True:
+                midpoint = lower + (upper - lower) * 0.5
+                if midpoint in (lower, upper):
+                    raise FloatingPointError(
+                        f"Could not resolve the Gaussian precision for row {row} "
+                        "at float64 accuracy."
+                    )
+                probabilities, entropy = _gaussian_probabilities(log_gaps, midpoint)
                 difference = entropy - target_entropy
                 if abs(difference) <= entropy_tolerance:
                     break
                 if difference > 0.0:
-                    lower = beta
-                    beta = beta * 2.0 if np.isinf(upper) else (beta + upper) * 0.5
+                    lower = midpoint
                 else:
-                    upper = beta
-                    beta = (beta + lower) * 0.5
+                    upper = midpoint
         positive = probabilities > 0.0
         achieved_entropy = -float(
             np.sum(
@@ -154,7 +203,14 @@ def _kl_divergence(
 
 
 class TSNE(BaseEstimator):
-    """Exact symmetric dense t-SNE optimized with analytic gradients."""
+    """Exact symmetric dense t-SNE optimized with analytic gradients.
+
+    ``tol`` bounds the maximum absolute gradient entry. ``function_tol``
+    independently bounds relative objective improvement for L-BFGS-B.
+    ``stopping_reason_`` records the solver's criterion; ``gradient_converged_``
+    distinguishes stationarity from objective stagnation. Neither certifies a
+    global optimum of this nonconvex objective.
+    """
 
     def __init__(
         self,
@@ -166,6 +222,7 @@ class TSNE(BaseEstimator):
         init: Literal["pca", "random"] = "pca",
         max_iter: int = 1000,
         tol: float = 1e-7,
+        function_tol: float = 1e-12,
         random_state: int | np.random.Generator | None = None,
     ) -> None:
         self.n_components = n_components
@@ -175,6 +232,7 @@ class TSNE(BaseEstimator):
         self.init = init
         self.max_iter = max_iter
         self.tol = tol
+        self.function_tol = function_tol
         self.random_state = random_state
 
     def _initialize(
@@ -231,6 +289,9 @@ class TSNE(BaseEstimator):
         if self.early_exaggeration_iter < 0:
             raise ValueError("early_exaggeration_iter must be nonnegative.")
         tolerance = validate_positive_real(self.tol, name="tol")
+        function_tolerance = validate_positive_real(
+            self.function_tol, name="function_tol"
+        )
         feature_distances = pairwise_distances(features)
         row_scale = np.max(feature_distances, axis=1)
         if np.any(row_scale <= 0.0):
@@ -238,11 +299,11 @@ class TSNE(BaseEstimator):
                 "t-SNE input is degenerate; at least two distinct observations "
                 "are required."
             )
-        normalized_squared = (feature_distances / row_scale[:, None]) ** 2
         probabilities, conditional, entropy_residuals = _joint_probabilities(
-            normalized_squared, perplexity
+            feature_distances, perplexity, squared=False
         )
         initial = self._initialize(features, n_components)
+        original_initial = initial.copy()
         consumed = 0
         last_result: optimize.OptimizeResult | None = None
         early_iterations = min(int(self.early_exaggeration_iter), int(self.max_iter))
@@ -255,7 +316,7 @@ class TSNE(BaseEstimator):
                 jac=True,
                 options={
                     "maxiter": early_iterations,
-                    "ftol": tolerance,
+                    "ftol": function_tolerance,
                     "gtol": tolerance,
                 },
             )
@@ -265,14 +326,30 @@ class TSNE(BaseEstimator):
             consumed = int(last_result.nit)
         remaining = max(0, int(self.max_iter) - early_iterations)
         ran_standard_phase = remaining > 0
+        rescaled_initial = False
         if ran_standard_phase:
+            # Exaggerated attraction may contract the entire start toward zero,
+            # a stationary but uninformative configuration for the standard
+            # objective. Restore the initialization's spread while preserving
+            # its geometry before testing an absolute gradient tolerance.
+            initial -= np.mean(initial, axis=0, keepdims=True)
+            spread = float(np.std(initial))
+            if spread < 1e-4:
+                initial = (
+                    original_initial if spread == 0.0 else initial * (1e-4 / spread)
+                )
+                rescaled_initial = True
             last_result = optimize.minimize(
                 _tsne_objective_gradient,
                 initial.ravel(),
                 args=(probabilities, n_components),
                 method="L-BFGS-B",
                 jac=True,
-                options={"maxiter": remaining, "ftol": tolerance, "gtol": tolerance},
+                options={
+                    "maxiter": remaining,
+                    "ftol": function_tolerance,
+                    "gtol": tolerance,
+                },
             )
             consumed += int(last_result.nit)
         if last_result is None:
@@ -287,6 +364,15 @@ class TSNE(BaseEstimator):
         )[1]
         gradient_norm = float(linalg.norm(gradient))
         converged = ran_standard_phase and bool(last_result.success)
+        if not np.isfinite(kl) or not np.isfinite(gradient_norm):
+            raise FloatingPointError(
+                "t-SNE produced a non-finite objective or gradient."
+            )
+        self.stopping_reason_ = str(last_result.message)
+        self.gradient_converged_ = ran_standard_phase and bool(
+            np.max(np.abs(gradient)) <= tolerance
+        )
+        self.early_exaggeration_rescaled_ = rescaled_initial
         self.embedding_: NDArray[np.float64] = embedding
         self.joint_probabilities_ = probabilities
         self.conditional_probabilities_ = conditional
@@ -295,6 +381,8 @@ class TSNE(BaseEstimator):
         self.n_iter_ = consumed
         self.n_components_: int = n_components
         warning = () if converged else (str(last_result.message),)
+        if converged and not self.gradient_converged_:
+            warning = ("Objective tolerance reached before the gradient tolerance.",)
         self.diagnostics_ = diagnostics(
             "exact_symmetric_tsne_lbfgsb",
             converged=converged,

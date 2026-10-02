@@ -22,7 +22,8 @@
   Pair-distance ties otherwise remain in the strict empirical count.
 - **Advertised regime:** a scale interval displaying approximately power-law
   correlation-integral growth. Multiple scaling regimes require separate fits.
-- **Complexity:** `O(n^2 p)` time and `O(n^2)` memory for exact dense distances.
+- **Complexity:** `O(n^2(p + log n) + B n^2)` time and `O(np + n^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.
 - **Independent evidence:** literal six-pair count/slope fixture, Euclidean
   invariance tests, duplicate and scale failures, and two-dimensional uniform
   recovery. No Rdimtools output or implementation behavior is an oracle.

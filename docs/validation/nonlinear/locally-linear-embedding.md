@@ -13,5 +13,13 @@
 - **Equivalence and evidence:** tests independently verify every affine row sum,
   reconstruction objective, eigensystem residual, graph failure, and translation
   behavior. Signs and repeated-eigenspace bases are not treated as identifiable.
-- **Contract:** transductive; no `transform`. Complexity is
-  `O(n^2 p + n k^3 + n^3)` in the dense reference path. Rdimtools is not an oracle.
+- **Contract:** transductive; no `transform`. Rdimtools is not an oracle.
+
+- **Constant-mode constraint:** the global symmetric eigenproblem is solved on
+  the orthogonal complement of the known constant vector using Helmert contrasts.
+  This preserves mean-zero orthonormal coordinates even when the zero eigenvalue
+  is repeated; deleting an arbitrary first eigenvector would not. Noiseless flat
+  LTSA tests compare the complete coordinate projector and row-permuted geometry.
+
+- **Complexity:** `O(n^2 p + n h^2 p + n h^3 + n^3) time; O(np + n^2) memory`; symbols follow the
+  [method catalog](../../methods.md).

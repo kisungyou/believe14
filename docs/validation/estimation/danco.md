@@ -8,7 +8,10 @@
   Equations 2–13.
 - **Norm component:** compute `rho_i=T_1(i)/T_{k+1}(i)`, maximize the MiND
   likelihood, and compare it with calibrated estimates using the paper's
-  closed-form Equation 3 KL divergence.
+  Equation 3 KL divergence. The implementation integrates the same density ratio
+  with `u=r^d`, `t=-k log(1-u)` and unit exponential weight, avoiding the
+  cancellation-prone alternating binomial sum. Quadrature has explicit error and
+  termination checks; identity KL is exactly zero and significant negatives fail.
 - **Angle component:** form every pair among the `k` normalized neighbor
   directions at each observation. Estimate local von Mises mean directions and
   concentrations by Equations 6–8, average those parameters over observations,
@@ -17,7 +20,9 @@
   `N` points uniformly from the unit `d`-ball using Gaussian directions and
   radial law `U^(1/d)`. Recompute both statistics and select the candidate
   minimizing their summed KL divergence (Equation 13). Default `k=10`; default
-  upper bound is ambient feature count and must be at least two.
+  upper bound is ambient feature count and must be at least two. At least three
+  neighbors are required: two neighbors supply only one angle and infinite
+  concentration.
 - **Numerical convention:** the exact `eta=1` angular boundary has infinite von
   Mises concentration and is rejected; it is never clipped to a large finite
   surrogate. The high-concentration expression is algebraically factored to
@@ -32,14 +37,15 @@
   global RNG untouched.
 - **Failure policy:** reject one-dimensional or embedded-collinear data,
   duplicate/zero radii, first-to-`(k+1)` neighbor ties, angular resultants equal
-  to one, invalid candidate bounds, and any non-finite KL. Other distance ties
+  to one, invalid candidate bounds, and any non-finite or materially negative KL. Other distance ties
   use stable row-index order; no perturbation or fallback estimator is used.
 - **Advertised regime:** intrinsic dimension at least two, with smooth local
   sampling approximated by uniform balls. Stochastic calibration uncertainty
   should be assessed with multiple seeds for release-scale empirical studies.
-- **Complexity:** exact dense `O((D-1) n^2 p + (D-1) n k^2)` time and `O(n^2)`
-  peak memory for candidates `2,...,D`, where `D=max_dimension`.
-- **Independent evidence:** identity checks for both closed-form KL terms,
+- **Complexity:** `O(n^2(p + D^2 + D log n) + n h^2(p + D^2) + DTn + DQ + min(np^2,n^2p))` time and `O(n^2 + np + nD + h^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.
+- **Independent evidence:** density-integral checks through 10,000 neighbors, exact KL
+  identity checks,
   seeded calibration replay, global-RNG isolation, geometric/permutation and
   singular-tie tests, explicit one-dimensional failure, and two- and
   three-dimensional uniform-ball recovery below a loose upper bound across

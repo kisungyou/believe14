@@ -12,7 +12,7 @@ from sklearn.base import BaseEstimator
 from believe14._core.diagnostics import diagnostics
 from believe14._core.validation import validate_features
 
-from ._common import neighbor_distances, positive_integer
+from ._common import log_distance_ratios, neighbor_distances, positive_integer
 
 
 class LevinaBickelMLE(BaseEstimator):
@@ -55,8 +55,8 @@ class LevinaBickelMLE(BaseEstimator):
         distances, _ = neighbor_distances(Xv, k_max)
         estimates = np.empty((k_max - k_min + 1, Xv.shape[0]), dtype=np.float64)
         for offset, k_value in enumerate(range(k_min, k_max + 1)):
-            log_ratios = np.log(
-                distances[:, [k_value - 1]] / distances[:, : k_value - 1]
+            log_ratios = log_distance_ratios(
+                distances[:, [k_value - 1]], distances[:, : k_value - 1]
             )
             denominator = np.sum(log_ratios, axis=1)
             if np.any(denominator <= 0.0):
@@ -66,6 +66,10 @@ class LevinaBickelMLE(BaseEstimator):
                 )
             numerator = k_value - 2 if self.bias_correction else k_value - 1
             estimates[offset] = float(numerator) / denominator
+        if not np.all(np.isfinite(estimates)) or np.any(estimates <= 0.0):
+            raise FloatingPointError(
+                "Local dimension estimates must be finite and positive."
+            )
         by_k = np.mean(estimates, axis=1)
         self.dimension_ = float(np.mean(by_k))
         self.local_dimensions_ = np.mean(estimates, axis=0)

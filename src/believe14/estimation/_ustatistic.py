@@ -60,6 +60,10 @@ class UStatisticDimension(BaseEstimator):
     A local random permutation makes the interleaved paper partitions independent
     of an externally sorted input while preserving their i.i.d. interpretation.
 
+    Finite-sample accuracy is assessed separately from numerical convergence.
+    The registry and validation ledger record the current status and tested
+    configurations. Successful computation does not certify dimension recovery.
+
     References
     ----------
     Hein, M. and Audibert, J.-Y. (2005), ICML, 289--296.
@@ -154,9 +158,12 @@ class UStatisticDimension(BaseEstimator):
             slopes[dim_index] = slope
             regression_residuals[dim_index] = float(np.sum(weights * residual**2))
         winner = int(np.argmin(np.abs(slopes)))
-        warning_messages: tuple[str, ...] = ()
+        warning_messages: tuple[str, ...] = (
+            "Finite-sample accuracy: dimension estimates can be inaccurate; "
+            "consult the validation ledger for tested configurations and uncertainty.",
+        )
         if winner in {0, max_dimension - 1}:
-            warning_messages = (
+            warning_messages += (
                 "The flattest U-statistic slope occurs on the candidate boundary.",
             )
         self.dimension_ = float(dimensions[winner])

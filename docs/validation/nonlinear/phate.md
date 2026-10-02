@@ -17,5 +17,5 @@
   potential distances; they also check symmetry/hollowness, zero-bandwidth rejection,
   literal MDS stress, and truthful convergence. The method is transductive; Rdimtools
   is not an oracle.
-- **Complexity:** exact pairwise distances and diffusion storage use `O(n^2)`
-  memory; dense diffusion powers and the final eigensolver are cubic in `n`.
+- **Complexity:** `O(n^2 p + n^3 log(t+1) + T n^2 k)` time and `O(np + n^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

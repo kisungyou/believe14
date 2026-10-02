@@ -8,9 +8,17 @@ kernelspec: {display_name: Python 3, language: python, name: python3}
 
 # UStatisticDimension
 
-Use this convergence-rate U-statistic estimator when compact-kernel means can be
-compared across prescribed bandwidth and sample-size scales. It is a global,
-finite-candidate estimate and uses a seeded sample ordering.
+Use this estimator to explore compact-kernel means across
+prescribed bandwidth and sample-size scales. It is a global, finite-candidate
+estimate and uses a seeded sample ordering.
+
+```{warning}
+Accuracy validation covers nine specified low-dimensional benchmark configurations.
+Individual fits can still be inaccurate, and higher-dimensional limitations remain.
+Successful computation and reproducible output do not certify dimension recovery.
+See the [validation ledger](../validation/estimation/u-statistic-dimension.md),
+including the original failed panel and the prospective accuracy study.
+```
 
 ```{code-cell} ipython3
 import numpy as np
@@ -28,6 +36,7 @@ assert not hasattr(model, "transform") and not hasattr(model, "predict")
     "candidate_dimensions": model.candidate_dimensions_.tolist(),
     "bandwidth_factors": np.round(model.bandwidth_factors_, 3).tolist(),
     "weighted_slope_residual": model.diagnostics_.residual_norm,
+    "warnings": model.diagnostics_.warnings,
 }
 ```
 

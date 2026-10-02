@@ -14,3 +14,12 @@
   disconnected/rank-deficient failures. Eigenspace geometry, not signs, is identified.
 - **Contract:** transductive; no `transform`. Dense reference complexity includes a
   cubic global eigendecomposition. Rdimtools is not an oracle.
+
+- **Constant-mode constraint:** the global symmetric eigenproblem is solved on
+  the orthogonal complement of the known constant vector using Helmert contrasts.
+  This preserves mean-zero orthonormal coordinates even when the zero eigenvalue
+  is repeated; deleting an arbitrary first eigenvector would not. Noiseless flat
+  LTSA tests compare the complete coordinate projector and row-permuted geometry.
+
+- **Complexity:** `O(n^2 p + n min(hp^2,h^2p) + n h^2 k + n^3) time; O(np + n^2) memory`; symbols follow the
+  [method catalog](../../methods.md).

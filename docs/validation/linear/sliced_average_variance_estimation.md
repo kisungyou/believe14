@@ -12,5 +12,5 @@
 - Evidence: symmetric quadratic central-subspace recovery (where SIR has zero
   inverse mean), covariance and spectral residuals, slice-size failures, and
   affine feature-transform checks. Compare direction projectors, not signs.
-- Complexity and legacy: dense covariance formation and feature eigendecomposition
-  dominate the calculation. Rdimtools is not an oracle.
+- **Complexity:** `O(np^2 + (S+1)p^3 + n log n + Sn)` time and `O(np + p^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

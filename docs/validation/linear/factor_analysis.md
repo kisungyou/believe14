@@ -13,8 +13,11 @@
   reported as non-convergence.
 - Transform/reconstruction: posterior factor mean `B x`; conditional mean
   reconstruction `L z + mean`.
+  Reconstruction evaluates the fitted mean through its reference and offset
+  with compensated addition, preserving low-order variation lost by a rounded
+  public `mean_`. Truly unrepresentable reconstructed outputs fail explicitly.
 - Evidence: covariance recovery, posterior-mean identity, positive covariance,
   convergence, and forced non-convergence tests. Factor rotations/signs are not
   identifiable; covariance matrices are the primary comparison object.
-- Complexity and legacy: fitting forms the dense feature covariance and performs
-  rank-`k` EM updates until convergence. Rdimtools is not an oracle.
+- **Complexity:** `O(np^2 + T p^3)` time and `O(np + p^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

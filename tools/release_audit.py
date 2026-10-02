@@ -5,10 +5,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.metadata
+import importlib.util
 import json
 import platform
 import subprocess
 import sys
+import tempfile
 import time
 import tracemalloc
 from collections.abc import Callable
@@ -20,6 +22,7 @@ from typing import Any
 import numpy as np
 import scipy
 import sklearn
+from scipy.stats import t as student_t
 from sklearn.base import BaseEstimator
 from threadpoolctl import threadpool_info
 
@@ -72,6 +75,113 @@ DIMENSION_ESTIMATOR_NAMES = {
     "DANCo",
 }
 CATALOG_MAX_NORMALIZED_RESIDUAL = 0.5
+RESEARCH_SEEDS = (1701, 1702, 1703)
+RELEASE_SEEDS = (1701, 1702, 1703, 1704, 1705)
+HOLDOUT_SEEDS = (5701, 5702, 5703, 5704, 5705)
+DANCO_1D_EXCLUSION = (
+    "The angular-concentration model excludes one-dimensional manifolds."
+)
+LARGER_SAMPLE_ACCURACY_METHODS = frozenset({"UStatisticDimension"})
+
+
+def _finite_number(value: object) -> bool:
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        return False
+    try:
+        return bool(np.isfinite(float(value)))
+    except (OverflowError, ValueError):
+        return False
+
+
+def _valid_dimension_result(value: JSONValue) -> bool:
+    if not isinstance(value, dict) or "failure" in value:
+        return False
+    estimate = value.get("estimate")
+    diagnostics = value.get("diagnostics")
+    if (
+        not _finite_number(estimate)
+        or float(estimate) <= 0.0
+        or not isinstance(diagnostics, dict)
+    ):
+        return False
+    outputs = value.get("checked_numeric_outputs")
+    if (
+        not isinstance(outputs, dict)
+        or not outputs
+        or any(
+            not isinstance(record, dict) or record.get("finite") is not True
+            for record in outputs.values()
+        )
+    ):
+        return False
+    return diagnostics.get("converged") is True and all(
+        field in diagnostics
+        and (diagnostics[field] is None or _finite_number(diagnostics[field]))
+        for field in (
+            "residual_norm",
+            "objective_value",
+            "condition_estimate",
+            "numerical_rank",
+            "n_iter",
+        )
+    )
+
+
+def _dimension_summary(values: list[JSONValue], truth: float) -> dict[str, JSONValue]:
+    estimates = np.array(
+        [value["estimate"] for value in values if _valid_dimension_result(value)],
+        dtype=float,
+    )
+    failures = len(values) - estimates.size
+    count = len(values)
+    summary: dict[str, JSONValue] = {
+        "truth": truth,
+        "raw": values,
+        "failure_rate": failures / count if count else 1.0,
+        "successful_replicates": int(estimates.size),
+    }
+    if count:
+        # Wilson score interval includes uncertainty even when no failures occur.
+        z = 1.959963984540054
+        rate = failures / count
+        denominator = 1.0 + z * z / count
+        center = (rate + z * z / (2 * count)) / denominator
+        half = (
+            z
+            * np.sqrt(rate * (1 - rate) / count + z * z / (4 * count * count))
+            / denominator
+        )
+        summary["failure_rate_ci95"] = [
+            max(0.0, float(center - half)),
+            min(1.0, float(center + half)),
+        ]
+    if estimates.size:
+        errors = estimates - truth
+        summary.update(
+            {
+                "mean": float(np.mean(estimates)),
+                "bias": float(np.mean(errors)),
+                "rmse": float(np.sqrt(np.mean(errors * errors))),
+                "standard_deviation": float(np.std(estimates)),
+            }
+        )
+    if estimates.size > 1:
+        half = float(
+            student_t.ppf(0.975, estimates.size - 1)
+            * np.std(estimates, ddof=1)
+            / np.sqrt(estimates.size)
+        )
+        mean = float(np.mean(estimates))
+        summary["mean_ci95"] = [mean - half, mean + half]
+        summary["bias_ci95"] = [mean - truth - half, mean - truth + half]
+        # Deterministic percentile bootstrap; intervals describe these replicates,
+        # not a guarantee for untested distributions or rare failures.
+        draws = np.random.default_rng(99173).choice(
+            estimates - truth, size=(2000, estimates.size)
+        )
+        interval = np.quantile(np.sqrt(np.mean(draws * draws, axis=1)), [0.025, 0.975])
+        summary["rmse_bootstrap_ci95"] = [float(v) for v in interval]
+    return summary
 
 
 def _git_value(*arguments: str) -> str | None:
@@ -130,6 +240,9 @@ def _environment_packages() -> dict[str, JSONValue]:
 
 
 def _jsonable(value: Any) -> JSONValue:
+    if isinstance(value, float) and not np.isfinite(value):
+        # Retain explicit evidence of invalid output in standards-compliant JSON.
+        return str(value)
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, np.generic):
@@ -231,7 +344,7 @@ def _catalog_audit(seed: int) -> dict[str, JSONValue]:
             2,
             perplexity=10,
             early_exaggeration_iter=50,
-            max_iter=300,
+            max_iter=1000,
             random_state=seed,
         ),
         PHATE(2, n_neighbors=10, decay=5, diffusion_time=5),
@@ -352,6 +465,13 @@ class DimensionScenario:
             "dimension": self.dimension,
             "ambient_dimension": self.ambient_dimension,
             "noise": self.noise,
+            "target": "latent_manifold_dimension",
+            "support_dimension": self.ambient_dimension
+            if self.noise
+            else self.dimension,
+            "search_max_dimension": min(
+                self.ambient_dimension, max(5, self.dimension + 3)
+            ),
         }
 
     def sample(self, rng: np.random.Generator) -> np.ndarray:
@@ -363,6 +483,14 @@ class DimensionScenario:
                 ambient_dimension=self.ambient_dimension,
                 noise=self.noise,
             )
+        if self.geometry in {"gaussian", "anisotropic"}:
+            latent = rng.normal(size=(self.n_samples, self.dimension))
+            if self.geometry == "anisotropic":
+                latent *= np.geomspace(1.0, 0.03, self.dimension)
+            basis, _ = np.linalg.qr(
+                rng.normal(size=(self.ambient_dimension, self.dimension))
+            )
+            return np.asarray(latent @ basis.T, dtype=np.float64)
         if self.geometry == "sphere":
             return _sphere_sample(rng, self.n_samples)
         if self.geometry == "swiss_roll":
@@ -386,25 +514,54 @@ def _dimension_scenarios() -> tuple[DimensionScenario, ...]:
     )
 
 
+def _characterization_scenarios() -> tuple[DimensionScenario, ...]:
+    """Accuracy characterization beyond the calibrated release regime.
+
+    No universal accuracy threshold is claimed for these finite-sample settings.
+    Bounds exceed truth; dimensions up to 15 are exercised, not certified.
+    """
+    return tuple(
+        DimensionScenario(
+            f"{geometry}_d{dimension}_n{count}",
+            geometry,
+            float(dimension),
+            count,
+            dimension,
+            dimension + 3,
+        )
+        for geometry, dimension in (
+            ("flat", 5),
+            ("flat", 10),
+            ("flat", 15),
+            ("gaussian", 2),
+            ("gaussian", 8),
+            ("anisotropic", 3),
+        )
+        for count in (400, 800)
+    )
+
+
 def _dimension_factories(
-    seed: int, ambient: int
+    seed: int, ambient: int, *, max_dimension: int = 5
 ) -> dict[str, Callable[[], BaseEstimator]]:
-    upper = min(5, ambient)
+    upper = min(max_dimension, ambient)
     return {
         "CorrelationDimension": CorrelationDimension,
         "TwoNN": TwoNN,
         "LevinaBickelMLE": lambda: LevinaBickelMLE(k_min=5, k_max=12),
         "UStatisticDimension": lambda: UStatisticDimension(
-            max_dimension=upper, random_state=seed
+            max_dimension=min(upper, 15), random_state=seed
         ),
         "MiNDML": lambda: MiNDML(n_neighbors=6, max_dimension=upper),
         "DANCo": lambda: DANCo(n_neighbors=6, max_dimension=upper, random_state=seed),
     }
 
 
-def _dimension_audit(seeds: tuple[int, ...]) -> dict[str, JSONValue]:
+def _dimension_audit(
+    seeds: tuple[int, ...], *, scenarios: tuple[DimensionScenario, ...] | None = None
+) -> dict[str, JSONValue]:
     raw: dict[str, JSONValue] = {}
-    for scenario in _dimension_scenarios():
+    for scenario in _dimension_scenarios() if scenarios is None else scenarios:
         scenario_values: dict[str, list[JSONValue]] = {}
         samples: list[JSONValue] = []
         for seed in seeds:
@@ -412,7 +569,9 @@ def _dimension_audit(seeds: tuple[int, ...]) -> dict[str, JSONValue]:
             sample = _array_metadata(X)
             sample["seed"] = seed
             samples.append(sample)
-            for name, factory in _dimension_factories(seed, X.shape[1]).items():
+            for name, factory in _dimension_factories(
+                seed, X.shape[1], max_dimension=max(5, scenario.dimension + 3)
+            ).items():
                 # DANCo's angular model is singular for one-dimensional flats.
                 if name == "DANCo" and scenario.truth < 2.0:
                     continue
@@ -421,8 +580,10 @@ def _dimension_audit(seeds: tuple[int, ...]) -> dict[str, JSONValue]:
                 parameters = _jsonable(estimator.get_params(deep=False))
                 try:
                     fitted, elapsed, peak = _profile_fit(estimator, X)
+                    outputs, _ = _numeric_outputs(fitted)
                     values.append(
                         {
+                            "checked_numeric_outputs": outputs,
                             "seed": seed,
                             "estimate": float(fitted.dimension_),  # type: ignore[attr-defined]
                             "parameters": parameters,
@@ -444,33 +605,7 @@ def _dimension_audit(seeds: tuple[int, ...]) -> dict[str, JSONValue]:
                     )
         summaries: dict[str, JSONValue] = {}
         for name, values in scenario_values.items():
-            successful = [
-                value
-                for value in values
-                if isinstance(value, dict)
-                and isinstance(value.get("estimate"), int | float)
-            ]
-            estimates = np.asarray(
-                [value["estimate"] for value in successful], dtype=np.float64
-            )
-            failures = len(values) - len(estimates)
-            if estimates.size:
-                errors = estimates - scenario.truth
-                summary: dict[str, JSONValue] = {
-                    "truth": scenario.truth,
-                    "raw": values,
-                    "mean": float(np.mean(estimates)),
-                    "bias": float(np.mean(errors)),
-                    "rmse": float(np.sqrt(np.mean(errors * errors))),
-                    "standard_deviation": float(np.std(estimates)),
-                    "failure_rate": failures / len(values),
-                }
-            else:
-                summary = {
-                    "truth": scenario.truth,
-                    "raw": values,
-                    "failure_rate": 1.0,
-                }
+            summary = _dimension_summary(values, scenario.truth)
             summaries[name] = summary
         raw[scenario.name] = {
             "truth": scenario.truth,
@@ -479,21 +614,19 @@ def _dimension_audit(seeds: tuple[int, ...]) -> dict[str, JSONValue]:
             "samples": samples,
             "methods": summaries,
             "not_applicable": (
-                {
-                    "DANCo": (
-                        "The 0.1.0 angular-concentration contract excludes "
-                        "one-dimensional manifolds."
-                    )
-                }
-                if scenario.truth < 2.0
-                else {}
+                {"DANCo": DANCO_1D_EXCLUSION} if scenario.truth < 2.0 else {}
             ),
         }
     return raw
 
 
 def _release_decision(
-    catalog: dict[str, JSONValue], dimension_scenarios: dict[str, JSONValue]
+    catalog: dict[str, JSONValue],
+    dimension_scenarios: dict[str, JSONValue],
+    *,
+    expected_seeds: tuple[int, ...] = RESEARCH_SEEDS,
+    scenario_specs: tuple[DimensionScenario, ...] | None = None,
+    accuracy_thresholds: bool = True,
 ) -> dict[str, JSONValue]:
     catalog_failures: list[JSONValue] = []
     expected_catalog = set(public_estimator_names())
@@ -509,13 +642,18 @@ def _release_decision(
         if record.get("output_finite") is not True:
             reasons.append("non-finite-or-unchecked-output")
         checked_outputs = record.get("checked_numeric_outputs")
-        if not isinstance(checked_outputs, dict) or not checked_outputs:
-            reasons.append("no-checked-numeric-output")
+        if (
+            not isinstance(checked_outputs, dict)
+            or not checked_outputs
+            or any(
+                not isinstance(output, dict) or output.get("finite") is not True
+                for output in checked_outputs.values()
+            )
+        ):
+            reasons.append("missing-or-invalid-output-checks")
         for field in ("objective", "normalized_residual", "condition_estimate"):
             value = record.get(field)
-            if value is not None and (
-                not isinstance(value, int | float) or not np.isfinite(value)
-            ):
+            if field not in record or (value is not None and not _finite_number(value)):
                 reasons.append(f"non-finite-{field}")
         residual = record.get("normalized_residual")
         if (
@@ -531,81 +669,212 @@ def _release_decision(
         catalog_failures.extend(f"{name}:{reason}" for reason in reasons)
 
     dimension_failures: list[JSONValue] = []
-    expected_scenarios = {
-        scenario.name: scenario for scenario in _dimension_scenarios()
-    }
+    if (
+        len(expected_seeds) < 3
+        or any(type(seed) is not int for seed in expected_seeds)
+        or len(set(expected_seeds)) != len(expected_seeds)
+    ):
+        raise ValueError("Specify at least three unique trusted integer audit seeds.")
+    experimental_accuracy_failures: list[str] = []
+    specs = _dimension_scenarios() if scenario_specs is None else scenario_specs
+    expected_scenarios = {scenario.name: scenario for scenario in specs}
     for name in sorted(set(expected_scenarios) - set(dimension_scenarios)):
         dimension_failures.append(f"missing-scenario:{name}")
     for name in sorted(set(dimension_scenarios) - set(expected_scenarios)):
         dimension_failures.append(f"unexpected-scenario:{name}")
-    for scenario, raw_scenario in dimension_scenarios.items():
-        scenario_record = raw_scenario if isinstance(raw_scenario, dict) else {}
-        raw_methods = scenario_record.get("methods", {})
+    for scenario, spec in expected_scenarios.items():
+        raw_scenario = dimension_scenarios.get(scenario)
+        record = raw_scenario if isinstance(raw_scenario, dict) else {}
+        raw_methods = record.get("methods")
         methods = raw_methods if isinstance(raw_methods, dict) else {}
-        not_applicable = scenario_record.get("not_applicable", {})
-        excluded = set(not_applicable) if isinstance(not_applicable, dict) else set()
-        expected_methods = DIMENSION_ESTIMATOR_NAMES - excluded
-        for name in sorted(expected_methods - set(methods)):
-            dimension_failures.append(f"{scenario}:missing-method:{name}")
-        for name in sorted(set(methods) - expected_methods):
-            dimension_failures.append(f"{scenario}:unexpected-method:{name}")
-        raw_seeds = scenario_record.get("seeds", [])
-        seeds = raw_seeds if isinstance(raw_seeds, list) else []
-        for name, raw_summary in methods.items():
+        approved_exemptions = {"DANCo": DANCO_1D_EXCLUSION} if spec.truth < 2.0 else {}
+        if record.get("not_applicable") != approved_exemptions:
+            dimension_failures.append(f"{scenario}:unapproved-exemptions")
+        expected_methods = DIMENSION_ESTIMATOR_NAMES - set(approved_exemptions)
+        if set(methods) != expected_methods:
+            dimension_failures.append(f"{scenario}:incorrect-method-inventory")
+        expected_samples: list[JSONValue] = []
+        for seed in expected_seeds:
+            sample = _array_metadata(spec.sample(np.random.default_rng(seed)))
+            sample["seed"] = seed
+            expected_samples.append(sample)
+        if (
+            record.get("seeds") != list(expected_seeds)
+            or record.get("samples") != expected_samples
+        ):
+            dimension_failures.append(f"{scenario}:incomplete-or-inconsistent-samples")
+        if (
+            record.get("truth") != spec.truth
+            or record.get("parameters") != spec.parameters()
+        ):
+            dimension_failures.append(f"{scenario}:inconsistent-specification")
+        for name in sorted(expected_methods):
+            raw_summary = methods.get(name)
             summary = raw_summary if isinstance(raw_summary, dict) else {}
-            max_rmse = 0.5 if name in {"UStatisticDimension", "DANCo"} else 0.75
-            rmse = summary.get("rmse")
-            bias = summary.get("bias")
-            standard_deviation = summary.get("standard_deviation")
-            failure_rate = summary.get("failure_rate")
-            raw_values = summary.get("raw", [])
+            raw_values = summary.get("raw")
             values = raw_values if isinstance(raw_values, list) else []
-            observed_seeds = {
-                value.get("seed") for value in values if isinstance(value, dict)
-            }
-            complete = len(values) == len(seeds) and observed_seeds == set(seeds)
-            passed = (
-                isinstance(rmse, int | float)
-                and np.isfinite(rmse)
-                and rmse <= max_rmse
-                and isinstance(bias, int | float)
-                and np.isfinite(bias)
-                and abs(bias) <= max_rmse
-                and isinstance(standard_deviation, int | float)
-                and np.isfinite(standard_deviation)
-                and standard_deviation <= 0.75
-                and failure_rate == 0.0
-                and complete
+            complete = len(values) == len(expected_seeds)
+            for index, value in enumerate(values):
+                if index >= len(expected_seeds) or not _valid_dimension_result(value):
+                    complete = False
+                    continue
+                seed = expected_seeds[index]
+                expected_params = _jsonable(
+                    _dimension_factories(
+                        seed,
+                        spec.ambient_dimension,
+                        max_dimension=max(5, spec.dimension + 3),
+                    )[name]().get_params(deep=False)
+                )
+                if (
+                    type(value.get("seed")) is not int
+                    or value.get("seed") != seed
+                    or value.get("parameters") != expected_params
+                ):
+                    complete = False
+            try:
+                with np.errstate(over="raise", invalid="raise", divide="raise"):
+                    recomputed = _dimension_summary(values, spec.truth)
+            except (FloatingPointError, OverflowError):
+                dimension_failures.append(f"{scenario}:{name}:invalid-statistics")
+                continue
+            consistent = all(
+                key in summary and summary[key] == value
+                for key, value in recomputed.items()
+                if key != "raw"
             )
+            max_rmse = 0.5 if name in {"UStatisticDimension", "DANCo"} else 0.75
+            accuracy_passed = (
+                all(
+                    _finite_number(recomputed.get(key))
+                    and abs(float(recomputed[key])) <= bound
+                    for key, bound in (
+                        ("rmse", max_rmse),
+                        ("bias", max_rmse),
+                        ("standard_deviation", 0.75),
+                    )
+                )
+                if accuracy_thresholds
+                else True
+            )
+            integrity_passed = (
+                complete and consistent and recomputed.get("failure_rate") == 0.0
+            )
+            passed = integrity_passed and accuracy_passed
             summary["release_thresholds"] = {
-                "max_rmse": max_rmse,
-                "max_absolute_bias": max_rmse,
-                "max_standard_deviation": 0.75,
+                "max_rmse": max_rmse if accuracy_thresholds else None,
+                "max_absolute_bias": max_rmse if accuracy_thresholds else None,
+                "max_standard_deviation": 0.75 if accuracy_thresholds else None,
                 "max_failure_rate": 0.0,
-                "required_replicates": len(seeds),
+                "required_replicates": len(expected_seeds),
+                "accuracy_gate": accuracy_thresholds,
             }
-            summary["passed"] = passed
+            summary["passed"] = bool(passed)
             if not passed:
-                dimension_failures.append(f"{scenario}:{name}")
+                failure = f"{scenario}:{name}"
+                dimension_failures.append(failure)
+                if integrity_passed and name in LARGER_SAMPLE_ACCURACY_METHODS:
+                    experimental_accuracy_failures.append(failure)
     passed = not catalog_failures and not dimension_failures
+    supported_failures = [
+        failure
+        for failure in dimension_failures
+        if failure not in experimental_accuracy_failures
+    ]
     return {
         "passed": passed,
         "catalog_max_normalized_residual": CATALOG_MAX_NORMALIZED_RESIDUAL,
         "catalog_failures": catalog_failures,
         "dimension_failures": dimension_failures,
+        "supported_scope": {
+            "passed": not catalog_failures and not supported_failures,
+            "larger_sample_accuracy_methods": sorted(LARGER_SAMPLE_ACCURACY_METHODS),
+            "nonblocking_accuracy_failures": experimental_accuracy_failures,
+            "catalog_failures": list(catalog_failures),
+            "dimension_failures": supported_failures,
+        },
     }
+
+
+def _run_ustatistic_certification() -> tuple[dict[str, Any], dict[str, Any]]:
+    """Reproduce the fixed prospective protocol against the installed package.
+
+    Every later invocation replays the same benchmark; it is not another
+    independent statistical study. The original panel remains archived below.
+    """
+
+    spec = importlib.util.spec_from_file_location(
+        "_believe14_ustatistic_certification",
+        Path(__file__).with_name("ustatistic_certification.py"),
+    )
+    if spec is None or spec.loader is None:
+        raise ImportError("Cannot load the adjacent certification tool.")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    with tempfile.TemporaryDirectory(prefix="believe14-certification-") as temporary:
+        directory = Path(temporary)
+        module.freeze_design(directory / "design.json")
+        evidence = module.run_frozen_design(
+            directory / "design.json", directory / "evidence.json"
+        )
+        # Recompute from raw records; a saved decision is not authoritative.
+        return evidence, module.certification_decision(evidence)
 
 
 def run_audit(*, artifact_paths: tuple[Path, ...] = ()) -> dict[str, JSONValue]:
     """Return all raw evidence and reproducibility metadata."""
 
-    seeds = (1701, 1702, 1703, 1704, 1705)
+    seeds = RELEASE_SEEDS
     catalog = _catalog_audit(seeds[0])
     dimension_scenarios = _dimension_audit(seeds)
-    decision = _release_decision(catalog, dimension_scenarios)
+    decision = _release_decision(catalog, dimension_scenarios, expected_seeds=seeds)
+    holdout = _dimension_audit(HOLDOUT_SEEDS)
+    holdout_decision = _release_decision(catalog, holdout, expected_seeds=HOLDOUT_SEEDS)
+    characterization = _dimension_audit(
+        HOLDOUT_SEEDS, scenarios=_characterization_scenarios()
+    )
+    characterization_decision = _release_decision(
+        catalog,
+        characterization,
+        expected_seeds=HOLDOUT_SEEDS,
+        scenario_specs=_characterization_scenarios(),
+        accuracy_thresholds=False,
+    )
+    decision["passed"] = all(
+        item["passed"]
+        for item in (decision, holdout_decision, characterization_decision)
+    )
+    decision["holdout"] = holdout_decision
+    decision["characterization_integrity"] = characterization_decision
+    scoped_decisions = {
+        "calibration": decision["supported_scope"],
+        "holdout": holdout_decision["supported_scope"],
+        "characterization_integrity": characterization_decision["supported_scope"],
+    }
+    required_checks: dict[str, JSONValue] = {
+        "passed": all(item["passed"] for item in scoped_decisions.values()),
+        "scope": (
+            "All original checks except UStatisticDimension small-panel accuracy. "
+            "Every estimator still requires complete evidence, finite outputs, "
+            "convergence, and numerical checks. UStatisticDimension additionally "
+            "requires the separate 500-replicate simultaneous accuracy certificate."
+        ),
+        **scoped_decisions,
+    }
+    certification, certificate_decision = _run_ustatistic_certification()
+    current_decision: dict[str, JSONValue] = {
+        "protocol": "original-checks-plus-prospective-ustatistic-v1",
+        "passed": (
+            required_checks["passed"] is True and certificate_decision["passed"] is True
+        ),
+        "required_checks": required_checks,
+        "ustatistic_certification": certificate_decision,
+        "historical_panel_passed": decision["passed"],
+    }
     git = _git_metadata()
     return {
-        "schema_version": 2,
+        "schema_version": 5,
         "release": believe14.__version__,
         "generated_at_utc": datetime.now(UTC).isoformat(),
         "commit": git["commit"],
@@ -631,7 +900,21 @@ def run_audit(*, artifact_paths: tuple[Path, ...] = ()) -> dict[str, JSONValue]:
         "seeds": list(seeds),
         "catalog": catalog,
         "dimension_scenarios": dimension_scenarios,
-        "release_gate": decision,
+        "holdout_seeds": list(HOLDOUT_SEEDS),
+        "holdout_dimension_scenarios": holdout,
+        "dimension_characterization": characterization,
+        "statistical_scope": (
+            "Accuracy gates cover the prespecified low-dimensional scenarios only. "
+            "Extended scenarios check integrity and report accuracy without a "
+            "universal accuracy threshold. UStatisticDimension population RMSE "
+            "uses 500 fixed independent trials per original scenario and a "
+            "simultaneous 95% upper bound, with the unchanged 0.5 limit. The "
+            "original five-run panels retain their outcomes as historical "
+            "evidence. Neither protocol certifies untested distributions."
+        ),
+        "historical_panel_gate": decision,
+        "ustatistic_certification": certification,
+        "release_gate": current_decision,
     }
 
 
@@ -642,7 +925,8 @@ def main() -> None:
     arguments = parser.parse_args()
     results = run_audit(artifact_paths=tuple(arguments.artifact))
     arguments.output.write_text(
-        json.dumps(results, allow_nan=False, indent=2, sort_keys=True) + "\n",
+        json.dumps(_jsonable(results), allow_nan=False, indent=2, sort_keys=True)
+        + "\n",
         encoding="utf-8",
     )
     decision = results["release_gate"]

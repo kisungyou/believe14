@@ -18,10 +18,13 @@
   row permutation. Exact distance ties use stable row-index ordering.
 - **Failure policy:** reject duplicates/zero radii and any local denominator made
   zero by neighbor-radius ties; never jitter distances or drop affected rows.
+  Log ratios are evaluated without dividing widely separated radii, with `log1p`
+  for close radii. Local estimates must be finite and positive.
 - **Advertised regime:** locally homogeneous Poisson approximation on one
   manifold, with `k` small relative to sample size. Estimates are scale-dependent
   when the data have noise or multiple dimensional regimes.
-- **Complexity:** `O(n^2 p)` time and `O(n^2)` memory.
+- **Complexity:** `O(n^2(p + log n) + n h^2)` time and `O(np + n^2)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.
 - **Independent evidence:** both numerator conventions have literal local-formula
   fixtures; invariance, neighbor-range, duplicate/tie, and synthetic recovery
   tests pass. No Rdimtools behavior is inherited.

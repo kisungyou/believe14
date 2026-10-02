@@ -41,7 +41,11 @@ class FitDiagnostics:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EstimatorInfo:
-    """Immutable public registry entry."""
+    """Immutable public registry entry.
+
+    ``validation_status`` describes the recorded evidence, not a guarantee for
+    untested data. Experimental methods have unresolved accuracy limitations.
+    """
 
     name: str
     qualified_name: str
@@ -54,6 +58,7 @@ class EstimatorInfo:
     complexity: str
     references: tuple[str, ...]
     estimator: type[BaseEstimator]
+    validation_status: Literal["validated", "experimental"] = "validated"
 
 
 class EstimatorProtocol(Protocol):

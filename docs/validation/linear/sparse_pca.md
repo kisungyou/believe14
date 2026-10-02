@@ -19,5 +19,5 @@
   monotone objective, KKT residual, zero-variance handling, seeded behavior, and
   forced non-convergence tests. Compare reconstructed matrices, objectives, and
   supports rather than signed columns.
-- Complexity and legacy: work scales with outer iterations, coordinate iterations,
-  samples, features, and retained components. Rdimtools is not an oracle.
+- **Complexity:** `O(np^2 + p^3 + T(Ckp^2 + npk + pk^2))` time and `O(np + p^2 + T)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

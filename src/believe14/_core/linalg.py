@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import fsum
 
 import numpy as np
 from numpy.typing import NDArray
@@ -98,6 +99,61 @@ def apply_centering(
                 ((X / scale - reference / scale) - offset_mean / scale) * scale,
                 dtype=np.float64,
             )
+
+
+def restore_centering(
+    centered: NDArray[np.float64],
+    reference: NDArray[np.float64],
+    offset_mean: NDArray[np.float64],
+) -> NDArray[np.float64]:
+    """Restore a fitted mean without rounding its reference and offset first.
+
+    Two compensated additions retain low-order variation, including when the
+    offset cancels the reference. Rare overflowing partial sums use scalar
+    accurate summation with opposite signs first, without rescaling away a
+    representable small residual. Unrepresentable final values fail explicitly.
+    """
+
+    if not all(
+        np.all(np.isfinite(value)) for value in (centered, reference, offset_mean)
+    ):
+        raise FloatingPointError("Restoring observations requires finite summands.")
+    try:
+        with np.errstate(over="raise", invalid="raise"):
+            partial = centered + offset_mean
+            offset_virtual = partial - centered
+            partial_error = (centered - (partial - offset_virtual)) + (
+                offset_mean - offset_virtual
+            )
+            result = partial + reference
+            reference_virtual = result - partial
+            result_error = (partial - (result - reference_virtual)) + (
+                reference - reference_virtual
+            )
+            return np.asarray(result + (partial_error + result_error), dtype=np.float64)
+    except FloatingPointError:
+        values, offsets, references = np.broadcast_arrays(
+            centered, offset_mean, reference
+        )
+        restored = np.empty(values.shape, dtype=np.float64)
+        for index in np.ndindex(values.shape):
+            a, b, c = (
+                float(values[index]),
+                float(offsets[index]),
+                float(references[index]),
+            )
+            # Summing opposite signs first avoids fsum's intermediate-overflow
+            # error when the final sum itself is representable.
+            terms = (a, b, c)
+            if (a < 0.0) == (b < 0.0) and (a < 0.0) != (c < 0.0):
+                terms = (a, c, b)
+            try:
+                restored[index] = fsum(terms)
+            except OverflowError as error:
+                raise FloatingPointError(
+                    "The restored observations are not representable in float64."
+                ) from error
+        return restored
 
 
 def canonicalize_columns(matrix: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -213,3 +269,34 @@ def condition_estimate(matrix: NDArray[np.float64]) -> float:
     """Return a two-norm condition estimate, including infinity for singular input."""
 
     return float(np.linalg.cond(matrix))
+
+
+def scale_squared(values: NDArray[np.float64], scale: float) -> NDArray[np.float64]:
+    """Multiply by scale squared without an overflowing intermediate square."""
+
+    mantissa, exponent = np.frexp(values)
+    scale_mantissa, scale_exponent = np.frexp(scale)
+    with np.errstate(over="raise", invalid="raise", under="ignore"):
+        return np.asarray(
+            np.ldexp(
+                mantissa * scale_mantissa * scale_mantissa,
+                exponent + 2 * scale_exponent,
+            ),
+            dtype=np.float64,
+        )
+
+
+def eigh_without_constant(
+    matrix: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Solve a symmetric eigenproblem constrained to the mean-zero subspace.
+
+    Removing an eigenvector by index does not remove the constant mode when
+    zero is repeated. Helmert contrasts impose that constraint before solving.
+    """
+
+    basis = linalg.helmert(matrix.shape[0], full=False).T
+    reduced = basis.T @ matrix @ basis
+    reduced = (reduced + reduced.T) * 0.5
+    values, vectors = linalg.eigh(reduced, check_finite=False)
+    return np.asarray(values, dtype=np.float64), canonicalize_columns(basis @ vectors)

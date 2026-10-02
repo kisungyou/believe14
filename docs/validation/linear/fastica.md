@@ -11,8 +11,11 @@
 - Initialization/randomness: local Gaussian generator; integer seeds replay and
   global RNG state is untouched. Stop on maximum sign-invariant row alignment.
 - Transform/inverse: fitted unmixing and its Moore--Penrose mixing matrix.
+  Reconstruction restores the fitted reference and mean offset with compensated
+  addition; this preserves representable observations around a large offset.
+  Truly unrepresentable reconstructed outputs fail explicitly.
 - Evidence: whitening covariance, exact full-rank inverse, non-Gaussian mixture,
   seeded replay, and forced non-convergence tests. Source order and sign are
   non-identifiable and are never raw-coordinate acceptance criteria.
-- Complexity and legacy: the dense path combines a thin SVD with iterative
-  symmetric fixed-point updates. Rdimtools output is not an acceptance target.
+- **Complexity:** `O(min(np^2,n^2p) + T(nk^2 + k^3) + pk^2)` time and `O(np + pk)` peak memory;
+  symbols follow the [method catalog](../../methods.md). Rdimtools is not an oracle.

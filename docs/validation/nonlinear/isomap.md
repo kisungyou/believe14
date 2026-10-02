@@ -14,4 +14,7 @@
   literal path distances and recovers their one-dimensional Euclidean geometry;
   duplicate-edge, disconnected-cluster, and negative-spectrum failures are tested.
 - **Contract:** transductive in 0.1.0; no uncited interpolation or `transform`.
-  Complexity is `O(n^2 p + n^3)` time and `O(n^2)` memory. Rdimtools is not an oracle.
+  Rdimtools is not an oracle.
+
+- **Complexity:** `O(n^2 p + n^3) time; O(np + n^2) memory`; symbols follow the
+  [method catalog](../../methods.md).
