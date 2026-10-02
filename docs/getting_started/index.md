@@ -75,6 +75,82 @@ assert np.all(np.isfinite(embedding))
 (embedding.shape, np.round(pca.explained_variance_ratio_, 3))
 ```
 
+### Compare with the ground truth
+
+The left panel shows the known two-dimensional coordinates in `latent`; the
+right shows the PCA embedding computed from the four observed features in `X`.
+Matching colors and numbers identify the same eight observations. Both panels
+use equal aspect ratios and the same axis limits.
+
+```{code-cell} ipython3
+---
+tags: [hide-input]
+mystnb:
+  image:
+    alt: >-
+      Two scatter plots showing the eight ground-truth latent coordinates on the
+      left and their PCA embedding on the right, with matching colors and
+      observation numbers.
+    width: "100%"
+---
+%matplotlib inline
+import matplotlib.pyplot as plt
+
+colors = plt.get_cmap("tab10")(np.arange(len(latent)))
+coordinates = np.vstack([latent, embedding])
+lower = coordinates.min(axis=0) - 0.6
+upper = coordinates.max(axis=0) + 0.6
+variance = 100 * pca.explained_variance_ratio_
+
+fig, axes = plt.subplots(
+    1, 2, figsize=(9.6, 4.3), dpi=150, sharex=True, sharey=True,
+    layout="constrained",
+)
+panels = [
+    (
+        latent, "Ground truth: latent coordinates",
+        "Latent coordinate 1", "Latent coordinate 2",
+    ),
+    (
+        embedding, "PCA embedding",
+        f"PC 1 ({variance[0]:.1f}% variance)",
+        f"PC 2 ({variance[1]:.1f}% variance)",
+    ),
+]
+for ax, (points, title, xlabel, ylabel) in zip(axes, panels):
+    ax.scatter(
+        points[:, 0], points[:, 1], c=colors, s=85,
+        edgecolors="white", linewidths=0.8, zorder=3,
+    )
+    for number, point in enumerate(points, start=1):
+        ax.annotate(
+            str(number), point, xytext=(7, 7),
+            textcoords="offset points", fontsize=10,
+        )
+    ax.set(
+        title=title, xlabel=xlabel, ylabel=ylabel,
+        xlim=(lower[0], upper[0]), ylim=(lower[1], upper[1]),
+    )
+    ax.set_aspect("equal", adjustable="box")
+    ax.axhline(0, color="0.75", linewidth=0.8)
+    ax.axvline(0, color="0.75", linewidth=0.8)
+    ax.grid(alpha=0.2)
+    ax.spines[["top", "right"]].set_visible(False)
+plt.show()
+```
+
+The mixing matrix changes lengths and angles in the latent coordinates. PCA
+then centers the observed data and chooses axes of greatest variance, so its
+coordinates need not match `latent`. Both components together retain all
+variation in this rank-two dataset: reconstructing the original observations
+recovers `X` up to floating-point error.
+
+```{code-cell} ipython3
+assert np.allclose(pca.inverse_transform(embedding), X, rtol=1e-12, atol=1e-12)
+```
+
+### Transform new observations
+
 `PCA` is inductive: the fitted centering and component matrix define a
 paper-justified map for new observations with the same four input features.
 
