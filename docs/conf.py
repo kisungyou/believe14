@@ -77,7 +77,7 @@ bibtex_default_style = "alpha"
 
 html_theme = "pydata_sphinx_theme"
 html_title = f"believe14 {release}"
-html_baseurl = "https://kisungyou.github.io/believe14/"
+html_baseurl = "https://www.kisungyou.com/believe14/"
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 html_theme_options = {

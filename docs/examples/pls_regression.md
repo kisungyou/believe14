@@ -32,7 +32,16 @@ assert X_scores.shape == Y_scores.shape == (52, 2)
 ```
 
 `x_weights_`, `x_loadings_`, `y_loadings_`, and `coef_` record the frozen PLS2
-deflation convention. Diagnostics summarize component-wise NIPALS convergence and
+deflation convention. Each component starts from the leading singular direction
+of the residual X–Y cross-covariance, then uses the NIPALS updates and stopping
+rule. This avoids selecting a weaker covariance direction merely because of
+target-column order. The initialization adds a thin SVD of a matrix with one row
+per feature and one column per target; include this cost when working with many
+features and targets.
+
+Use `predict` to apply the fitted regression. It restores target offsets with
+compensated arithmetic, reducing loss of small predicted differences around a
+large target mean. Diagnostics summarize component-wise NIPALS convergence and
 relative prediction residual. Do not interpret PLS coefficients causally, and do
 not accept a false convergence flag as a fitted optimum.
 

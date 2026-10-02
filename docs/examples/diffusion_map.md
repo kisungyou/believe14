@@ -21,6 +21,11 @@ model = DiffusionMap(n_components=2, gamma=0.2, alpha=1.0, diffusion_time=1)
 embedding = model.fit_transform(X)
 queries = model.transform(X[:3])  # Nyström extension of diffusion eigenfunctions
 assert embedding.shape == (54, 2) and np.allclose(queries, embedding[:3])
+stationary = model.diffusion_degree_ / model.diffusion_degree_.sum()
+assert np.allclose(stationary @ embedding, 0.0, atol=1e-12)
+assert np.allclose(
+    model.eigenvectors_.T @ (stationary[:, None] * model.eigenvectors_), np.eye(2)
+)
 {
     "shape": embedding.shape,
     "diffusion_eigenvalues": np.round(model.eigenvalues_, 4).tolist(),
@@ -29,7 +34,14 @@ assert embedding.shape == (54, 2) and np.allclose(queries, embedding[:3])
 }
 ```
 
-`diffusion_operator_`, `eigenvalues_`, and `kernel_density_` expose normalization.
+`diffusion_operator_`, `eigenvalues_`, `kernel_density_`, and `diffusion_degree_`
+expose normalization. The stationary distribution is proportional to
+`diffusion_degree_`; the retained eigenfunctions are orthonormal under these
+weights and have zero stationary mean. The known stationary mode is excluded
+explicitly even when a weakly connected kernel has several eigenvalues close to
+one. Embedding coordinates multiply these eigenfunctions by
+`eigenvalues_ ** diffusion_time`.
+
 Diagnostics check the symmetric-conjugate eigensystem. Numerically disconnected
 kernel support and zero-density queries fail explicitly; extrapolation far from
 training support can be unstable despite the justified Nyström rule.

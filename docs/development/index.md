@@ -117,6 +117,10 @@ original failed holdout.
 
 ## Releasing
 
+The [changelog](../changelog.md) records unreleased corrections and versioned
+changes. It is shared with the repository so the website and source archive
+describe the same updates.
+
 The repository's [release guide](https://github.com/kisungyou/believe14/blob/main/RELEASING.md)
 documents clean annotated tags, immutable wheel and source artifacts, TestPyPI
 rehearsal, PyPI publication, GitHub Releases, and documentation deployment.
@@ -127,4 +131,5 @@ rehearsal, PyPI publication, GitHub Releases, and documentation deployment.
 
 Contributing scientific methods <../contributing>
 Validation evidence <../validation/index>
+Changelog <../changelog>
 ```
