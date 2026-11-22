@@ -11,6 +11,7 @@ from scipy.optimize import minimize_scalar
 from scipy.special import i0e, i1e
 
 from believe14._core.distances import exact_neighbors, pairwise_distances
+from believe14.neighbors import ExactNeighborGraph
 
 
 def positive_integer(value: int, *, name: str, minimum: int = 1) -> int:
@@ -53,11 +54,17 @@ def distances_without_duplicates(
 
 
 def neighbor_distances(
-    X: NDArray[np.float64], n_neighbors: int
+    X: NDArray[np.float64],
+    n_neighbors: int,
+    *,
+    neighbors: ExactNeighborGraph | None = None,
 ) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
     """Return exact neighbors and reject zero neighbor radii."""
 
-    distances, indices = exact_neighbors(X, n_neighbors)
+    if neighbors is None:
+        distances, indices = exact_neighbors(X, n_neighbors)
+    else:
+        distances, indices = neighbors.query(X, n_neighbors=n_neighbors)
     if np.any(distances <= 0.0):
         raise ValueError(
             "X contains duplicate observations, or distinct observations whose "
@@ -67,15 +74,18 @@ def neighbor_distances(
 
 
 def normalized_minimum_distances(
-    X: NDArray[np.float64], n_neighbors: int
+    X: NDArray[np.float64],
+    n_neighbors: int,
+    *,
+    neighbors: ExactNeighborGraph | None = None,
 ) -> tuple[NDArray[np.float64], NDArray[np.int64], NDArray[np.float64]]:
     """Compute Equation (11) of Ceruti et al. using ``k + 1`` neighbors."""
 
-    distances, indices = neighbor_distances(X, n_neighbors + 1)
+    distances, indices = neighbor_distances(X, n_neighbors + 1, neighbors=neighbors)
     ratios = distances[:, 0] / distances[:, -1]
     if np.any(ratios == 0.0):
         raise FloatingPointError("Normalized neighbor radii underflow float64.")
-    if np.any(ratios >= 1.0):
+    if n_neighbors > 1 and np.any(ratios >= 1.0):
         raise ValueError(
             "The first and (k + 1)-st neighbor radii tie. The normalized "
             "minimum-distance likelihood requires every ratio to lie in (0, 1)."
@@ -108,6 +118,8 @@ def mind_log_likelihood(
     """Log likelihood for ``g(r; k, d)`` from Lombardi et al."""
 
     logs = np.log(ratios)
+    if n_neighbors == 1:
+        return float(ratios.size * np.log(dimension) + (dimension - 1.0) * np.sum(logs))
     return float(
         ratios.size * (np.log(float(n_neighbors)) + np.log(dimension))
         + (dimension - 1.0) * np.sum(logs)
@@ -121,6 +133,8 @@ def mind_score(
     """Derivative of the MiND log likelihood with respect to dimension."""
 
     logs = np.log(ratios)
+    if n_neighbors == 1:
+        return float(ratios.size / dimension + np.sum(logs))
     powers = np.power(ratios, dimension)
     return float(
         ratios.size / dimension
@@ -185,19 +199,40 @@ def angular_parameters(
     """Estimate and average local von Mises parameters in Equations (6)--(8)."""
 
     n_samples, n_neighbors = neighbor_indices.shape
-    rows, cols = np.triu_indices(n_neighbors, k=1)
+    n_angles = n_neighbors * (n_neighbors - 1) // 2
     means = np.empty(n_samples, dtype=np.float64)
     concentrations = np.empty(n_samples, dtype=np.float64)
     for sample in range(n_samples):
         directions = X[neighbor_indices[sample]] - X[sample]
         directions = directions / neighbor_radii[sample, :, None]
-        cosines = np.clip(directions @ directions.T, -1.0, 1.0)[rows, cols]
-        angles = np.arccos(cosines)
+        # The half-angle formula retains angular differences near alignment.
+        # Work one direction at a time to bound scratch storage by O(k*p+k^2).
+        directions /= np.hypot.reduce(directions, axis=1)[:, None]
+        angles = np.empty(n_angles)
+        offset = 0
+        for index in range(n_neighbors - 1):
+            rest = directions[index + 1 :]
+            chord = np.hypot.reduce(rest - directions[index], axis=1)
+            antichord = np.hypot.reduce(rest + directions[index], axis=1)
+            angles[offset : offset + len(rest)] = 2 * np.arctan2(chord, antichord)
+            offset += len(rest)
         cosine_mean = float(np.mean(np.cos(angles)))
         sine_mean = float(np.mean(np.sin(angles)))
         means[sample] = np.arctan2(sine_mean, cosine_mean)
         resultant = float(np.hypot(cosine_mean, sine_mean))
-        concentrations[sample] = inverse_bessel_ratio(resultant)
+        if resultant < 0.85:
+            concentrations[sample] = inverse_bessel_ratio(resultant)
+        else:
+            # 1-eta^2 is the total variance of unit vectors on the circle.
+            # Rotate by the first angle, then shift their common real part.
+            delta = angles - angles[0]
+            deficit_sq = np.var(-2 * np.sin(delta / 2) ** 2) + np.var(np.sin(delta))
+            if deficit_sq == 0:
+                raise ValueError("Identical local angles have infinite concentration.")
+            with np.errstate(over="raise", divide="raise"):
+                concentrations[sample] = (1 + resultant) / (
+                    resultant * (3 - resultant) * deficit_sq
+                )
     return (
         float(np.mean(means)),
         float(np.mean(concentrations)),
@@ -280,23 +315,23 @@ def norm_kl(
     return max(0.0, value)
 
 
-def _log_i0(value: float) -> float:
-    return float(np.log(i0e(value)) + abs(value))
-
-
 def von_mises_kl(
     mean_1: float, concentration_1: float, mean_2: float, concentration_2: float
 ) -> float:
     """Closed-form von Mises KL divergence, paper Equation (9)."""
 
-    if concentration_1 == 0.0:
-        bessel_ratio = 0.0
+    ratio = float(i1e(concentration_1) / i0e(concentration_1))
+    if concentration_1 < 1e5:
+        deficit = 1.0 - ratio
     else:
-        bessel_ratio = float(i1e(concentration_1) / i0e(concentration_1))
+        # Large-k expansion of 1-I1(k)/I0(k) through cubic order.
+        inv = 1.0 / concentration_1
+        deficit = inv * (0.5 + inv * (0.125 + 0.125 * inv))
     value = (
-        _log_i0(concentration_2)
-        - _log_i0(concentration_1)
-        + bessel_ratio * (concentration_1 - concentration_2 * np.cos(mean_2 - mean_1))
+        np.log(i0e(concentration_2))
+        - np.log(i0e(concentration_1))
+        + deficit * (concentration_2 - concentration_1)
+        + (ratio * concentration_2) * (2.0 * np.sin((mean_2 - mean_1) / 2.0) ** 2)
     )
     if value < 0.0 and value > -1e-10:
         return 0.0

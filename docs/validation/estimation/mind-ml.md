@@ -16,8 +16,9 @@
   boundary warning where applicable.
 - **Invariances:** translation, orthogonal transformation, uniform scaling, and
   row permutation. Stable row index resolves equal-distance neighbor identity.
-- **Failure policy:** reject zero radii and a tie between first and `(k+1)`-st
-  radii because it places `rho` at the singular likelihood boundary. No clipping,
+- **Failure policy:** reject zero radii and, for `k>1`, a tie between the first and
+  `(k+1)`-st radii where the density vanishes. For `k=1`, ties are
+  admissible: the density is `d*rho**(d-1)`, with value `d` at one. No clipping,
   jitter, or observation removal is permitted. If a required exposed normalized
   radius underflows to zero, fitting raises `FloatingPointError`. Likelihood
   and score evaluation preserve small complements of powers near one.

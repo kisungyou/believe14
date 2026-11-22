@@ -12,6 +12,7 @@ from scipy import linalg
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils import Tags
 from sklearn.utils.validation import check_is_fitted
 
 from believe14._core.diagnostics import diagnostics
@@ -45,7 +46,12 @@ def _validate_kernel_matrix(X: ArrayLike) -> NDArray[np.float64]:
     tolerance = np.finfo(np.float64).eps * kernel.shape[0] * scale * 100.0
     if not np.allclose(kernel, kernel.T, rtol=0.0, atol=tolerance):
         raise ValueError("A precomputed training kernel must be symmetric.")
-    return np.asarray(kernel * 0.5 + kernel.T * 0.5, dtype=np.float64)
+    if np.array_equal(kernel, kernel.T):
+        return kernel.copy()
+    result = kernel.copy()
+    different = kernel != kernel.T
+    result[different] = kernel[different] * 0.5 + kernel.T[different] * 0.5
+    return result
 
 
 class KernelPCA(TransformerMixin, BaseEstimator):
@@ -65,6 +71,11 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         self.gamma = gamma
         self.degree = degree
         self.coef0 = coef0
+
+    def __sklearn_tags__(self) -> Tags:
+        tags = super().__sklearn_tags__()
+        tags.input_tags.pairwise = self.kernel == "precomputed"
+        return tags
 
     def _resolve_kernel_parameters(self, n_features: int) -> None:
         if self.kernel not in {"linear", "rbf", "poly", "precomputed"}:
@@ -123,7 +134,7 @@ class KernelPCA(TransformerMixin, BaseEstimator):
                 (
                     self._center_reference_,
                     self._center_offset_mean_,
-                ) = centering_state(features, kernel_features)
+                ) = centering_state(features)
             else:
                 kernel_features = features
             kernel = self._kernel(kernel_features)

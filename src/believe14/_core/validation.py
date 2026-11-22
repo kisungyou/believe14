@@ -84,7 +84,10 @@ def validate_precomputed(
         raise ValueError(
             "A precomputed dissimilarity matrix must have a zero diagonal."
         )
-    matrix = np.maximum(0.0, matrix * 0.5 + matrix.T * 0.5)
+    # Preserve already symmetric entries exactly, including subnormal distances.
+    matrix = np.maximum(matrix, 0.0)
+    smaller = np.minimum(matrix, matrix.T)
+    matrix = smaller + (np.maximum(matrix, matrix.T) - smaller) * 0.5
     np.fill_diagonal(matrix, 0.0)
     if squared and not np.all(np.isfinite(matrix)):
         raise ValueError("Squared dissimilarities must be finite.")

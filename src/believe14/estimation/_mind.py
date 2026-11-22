@@ -10,6 +10,7 @@ from sklearn.base import BaseEstimator
 
 from believe14._core.diagnostics import diagnostics
 from believe14._core.validation import validate_features
+from believe14.neighbors import ExactNeighborGraph
 
 from ._common import (
     maximize_mind_likelihood,
@@ -37,7 +38,13 @@ class MiNDML(BaseEstimator):
         self.n_neighbors = n_neighbors
         self.max_dimension = max_dimension
 
-    def fit(self, X: ArrayLike, y: ArrayLike | None = None) -> Self:
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
+    ) -> Self:
         """Maximize the normalized minimum-distance likelihood."""
 
         del y
@@ -51,7 +58,9 @@ class MiNDML(BaseEstimator):
             max_dimension = positive_integer(self.max_dimension, name="max_dimension")
             if max_dimension > Xv.shape[1]:
                 raise ValueError("max_dimension cannot exceed n_features.")
-        ratios, _, _ = normalized_minimum_distances(Xv, n_neighbors)
+        ratios, _, _ = normalized_minimum_distances(
+            Xv, n_neighbors, neighbors=neighbors
+        )
         estimate, log_likelihood, score, converged, evaluations = (
             maximize_mind_likelihood(ratios, n_neighbors, max_dimension)
         )

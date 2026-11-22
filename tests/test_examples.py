@@ -1,4 +1,4 @@
-"""Coverage and execution checks for the 30 method cards."""
+"""Coverage and execution checks for the 35 method cards."""
 
 from __future__ import annotations
 
@@ -14,6 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "docs" / "examples"
 
 EXPECTED_CARD_FILES = {
+    "LaplacianScore": "laplacian_score.md",
+    "NeighborhoodComponentsAnalysis": "neighborhood_components_analysis.md",
+    "LandmarkMDS": "landmark_mds.md",
+    "LandmarkIsomap": "landmark_isomap.md",
+    "TightLocalEstimator": "tight_local_estimator.md",
     "PCA": "pca.md",
     "GaussianRandomProjection": "gaussian_random_projection.md",
     "FactorAnalysis": "factor_analysis.md",
@@ -62,7 +67,7 @@ def _front_matter(text: str) -> dict[str, str]:
 
 def test_method_card_inventory_matches_registry_exactly() -> None:
     registry = {info.name: info for info in list_estimators()}
-    assert len(registry) == 30
+    assert len(registry) == 35
     assert set(EXPECTED_CARD_FILES) == set(registry)
     assert {path.name for path in EXAMPLES.glob("*.md")} == set(
         EXPECTED_CARD_FILES.values()

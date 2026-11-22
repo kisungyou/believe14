@@ -15,7 +15,10 @@
   insufficient positive numerical rank is rejected, not repaired.
 - **Out of sample:** feature inputs use the fitted kernel; precomputed queries supply
   exactly one kernel column per training observation. Both use training centering
-  statistics, implementing the Nyström projection.
+  statistics, implementing the Nyström projection. Training centering first
+  removes row and column anchor effects. Query centering is independent for
+  each row. In precomputed mode the pairwise tag lets scikit-learn slice both
+  axes correctly during cross-validation.
 - **Evidence:** the linear-kernel training Gram equals the literal centered feature
   Gram, remains stable under a large common translation, and training cross-kernel
   projection reproduces fitted coordinates. Symmetry, shape, definiteness, and rank

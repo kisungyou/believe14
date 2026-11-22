@@ -1,11 +1,11 @@
 # believe14
 
 `believe14` is a paper-first Python library for dimensionality reduction and
-intrinsic-dimension estimation. Version 0.1.0 contains 30 independently
+intrinsic-dimension estimation. The development version contains 35 independently
 implemented methods organized into three public families:
 `believe14.linear`, `believe14.nonlinear`, and `believe14.estimation`.
 
-All 30 methods carry validated status for their recorded tests and documented
+All 35 methods carry validated status for their recorded tests and documented
 scope; this is not a general accuracy or maturity guarantee. `UStatisticDimension`
 passed a prospective 4,500-fit accuracy study on nine specified low-dimensional
 configurations. Its earlier failed panel and higher-dimensional limitations
@@ -21,7 +21,9 @@ primitives; scikit-learn provides estimator interoperability and validation.
 python -m pip install believe14
 ```
 
-Python 3.12 or newer is required.
+The command above installs the published release. To use the 35-method
+development version from this checkout, run `python -m pip install .` in the
+repository directory. Python 3.12 or newer is required.
 
 ## Example
 

@@ -26,6 +26,7 @@ from believe14._core.validation import (
 )
 
 from ._common import initialize_embedding, output_names, smacof
+from ._phate_options import landmark_diffusion, select_diffusion_time
 
 _GAUSSIAN_EXPONENT_LIMIT = float(
     np.ceil(-np.log(np.finfo(np.float64).smallest_subnormal)) + 1.0
@@ -419,7 +420,9 @@ class PHATE(BaseEstimator):
         *,
         n_neighbors: int = 5,
         decay: float = 40.0,
-        diffusion_time: int = 20,
+        diffusion_time: int | Literal["auto"] = 20,
+        max_diffusion_time: int = 100,
+        n_landmarks: int | None = None,
         potential_floor: float = 1e-12,
         mds_max_iter: int = 300,
         mds_tol: float = 1e-6,
@@ -428,6 +431,8 @@ class PHATE(BaseEstimator):
         self.n_neighbors = n_neighbors
         self.decay = decay
         self.diffusion_time = diffusion_time
+        self.max_diffusion_time = max_diffusion_time
+        self.n_landmarks = n_landmarks
         self.potential_floor = potential_floor
         self.mds_max_iter = mds_max_iter
         self.mds_tol = mds_tol
@@ -447,44 +452,69 @@ class PHATE(BaseEstimator):
         floor = validate_positive_real(self.potential_floor, name="potential_floor")
         if floor >= 1.0:
             raise ValueError("potential_floor must be smaller than 1.")
-        if isinstance(self.diffusion_time, bool) or not isinstance(
-            self.diffusion_time, Integral
+        if isinstance(self.max_diffusion_time, bool) or not isinstance(
+            self.max_diffusion_time, Integral
         ):
-            raise TypeError("diffusion_time must be an integer.")
-        if self.diffusion_time < 1:
-            raise ValueError("diffusion_time must be positive.")
+            raise TypeError("max_diffusion_time must be an integer.")
+        if self.max_diffusion_time < 3:
+            raise ValueError("max_diffusion_time must be at least 3.")
+        n = len(features)
+        count = (
+            n
+            if self.n_landmarks is None
+            else validate_n_components(self.n_landmarks, maximum=n, name="n_landmarks")
+        )
+        if count <= n_components:
+            raise ValueError("n_landmarks must exceed n_components.")
+        time_setting = self.diffusion_time
+        if time_setting != "auto":
+            if isinstance(time_setting, bool) or not isinstance(time_setting, Integral):
+                raise TypeError("diffusion_time must be an integer or 'auto'.")
+            if time_setting < 1:
+                raise ValueError("diffusion_time must be positive.")
         distances = pairwise_distances(features)
         ordered = np.sort(distances, axis=1, kind="stable")
         bandwidth = ordered[:, n_neighbors]
-        scale = float(np.max(distances, initial=0.0))
-        threshold = np.finfo(np.float64).eps * scale * 100.0
-        if np.any(bandwidth <= threshold):
+        if np.any(bandwidth <= 0):
             raise ValueError(
                 "PHATE encountered a zero adaptive bandwidth; duplicated or "
                 "degenerate neighborhoods are not admissible."
             )
-        ratios = distances / bandwidth[:, None]
-        exponents = np.zeros_like(ratios)
-        positive = ratios > 0.0
-        log_exponents = decay * np.log(ratios[positive])
-        maximum_log = np.log(np.finfo(np.float64).max)
-        finite = log_exponents <= maximum_log
-        selected = np.empty_like(log_exponents)
-        selected[~finite] = np.inf
-        selected[finite] = np.exp(log_exponents[finite])
-        exponents[positive] = selected
-        directed = np.exp(-exponents)
+        # Subtract logarithms to avoid overflowing a valid positive ratio.
+        with np.errstate(divide="ignore", over="ignore", under="ignore"):
+            widths = bandwidth[:, None]
+            relative = (distances - widths) / widths
+            close = np.abs(relative) < 0.5
+            log_ratios = np.log(distances) - np.log(widths)
+            log_ratios[close] = np.log1p(relative[close])
+            log_exponents = decay * log_ratios
+            directed = np.exp(-np.exp(log_exponents))
         affinity = (directed + directed.T) * 0.5
-        count = int(connected_components(csr_matrix(affinity > 0.0), directed=False)[0])
-        if count != 1:
+        n_connected = int(
+            connected_components(csr_matrix(affinity > 0.0), directed=False)[0]
+        )
+        if n_connected != 1:
             raise ValueError(
                 "The PHATE alpha-decay affinity graph is numerically disconnected."
             )
         degree = np.sum(affinity, axis=1, dtype=np.float64)
         if np.any(degree <= 0.0):
             raise FloatingPointError("The PHATE affinity has a zero-degree row.")
-        transition = affinity / degree[:, None]
-        diffusion = np.linalg.matrix_power(transition, int(self.diffusion_time))
+        interpolation = indices = labels = None
+        if count < n:
+            transition, interpolation, indices, labels = landmark_diffusion(
+                affinity, distances, count
+            )
+        else:
+            transition = affinity / degree[:, None]
+        entropy = None
+        if time_setting == "auto":
+            diffusion_time, entropy = select_diffusion_time(
+                transition, int(self.max_diffusion_time)
+            )
+        else:
+            diffusion_time = int(time_setting)
+        diffusion = np.linalg.matrix_power(transition, diffusion_time)
         clipped = diffusion < floor
         potential = -np.log(np.maximum(diffusion, floor))
         potential_distances = pairwise_distances(potential)
@@ -508,7 +538,15 @@ class PHATE(BaseEstimator):
             )
         if not converged:
             warnings += ("PHATE metric MDS reached mds_max_iter.",)
-        self.embedding_: NDArray[np.float64] = embedding
+        self.diffusion_time_ = diffusion_time
+        self.diffusion_entropy_ = entropy
+        self.landmark_indices_ = indices
+        self.landmark_labels_ = labels
+        self.landmark_transitions_ = interpolation
+        self.landmark_embedding_ = embedding if interpolation is not None else None
+        self.embedding_: NDArray[np.float64] = (
+            embedding if interpolation is None else interpolation @ embedding
+        )
         self.affinity_matrix_ = affinity
         self.diffusion_operator_ = transition
         self.diffusion_potential_ = potential

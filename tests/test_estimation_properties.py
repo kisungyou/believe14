@@ -174,8 +174,9 @@ def test_neighbor_boundary_and_parameter_failures_are_explicit() -> None:
         CorrelationDimension(quantile_range=(0.2, 0.1)).fit(X)
 
 
-def test_neighbor_tie_singularity_is_not_silently_perturbed() -> None:
+def test_one_neighbor_likelihood_accepts_tied_boundary() -> None:
     angles = np.linspace(0.0, 2.0 * np.pi, 12, endpoint=False)
     circle = np.column_stack((np.cos(angles), np.sin(angles)))
-    with pytest.raises(ValueError, match="tie"):
-        MiNDML(n_neighbors=1, max_dimension=2).fit(circle)
+    model = MiNDML(n_neighbors=1, max_dimension=2).fit(circle)
+    assert model.dimension_ == 2
+    assert model.log_likelihood_ == pytest.approx(12 * np.log(2))

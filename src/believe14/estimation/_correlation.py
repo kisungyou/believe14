@@ -13,7 +13,7 @@ from sklearn.base import BaseEstimator
 from believe14._core.diagnostics import diagnostics
 from believe14._core.validation import validate_features
 
-from ._common import distances_without_duplicates, positive_integer
+from ._common import distances_without_duplicates, log_distance_ratios, positive_integer
 
 
 class CorrelationDimension(BaseEstimator):
@@ -58,19 +58,23 @@ class CorrelationDimension(BaseEstimator):
         distances = distances_without_duplicates(Xv)
         pair_distances = distances[np.triu_indices(Xv.shape[0], k=1)]
         radii = self._validated_radii(pair_distances)
-        correlation = np.asarray(
-            [np.mean(pair_distances < radius) for radius in radii],
-            dtype=np.float64,
+        counts = np.array(
+            [np.count_nonzero(pair_distances < radius) for radius in radii]
         )
-        valid = (correlation > 0.0) & (correlation < 1.0)
+        valid = (counts > 0) & (counts < pair_distances.size)
         if np.count_nonzero(valid) < 2:
             raise ValueError(
                 "The chosen scale interval produces fewer than two finite, "
                 "non-saturated correlation-integral values."
             )
         radii = radii[valid]
-        correlation = correlation[valid]
-        log_radii = np.log(radii)
+        counts = counts[valid]
+        if counts[0] == counts[-1]:
+            raise ValueError(
+                "The correlation integral has nonpositive slope on this flat interval."
+            )
+        correlation = counts / float(pair_distances.size)
+        log_radii = log_distance_ratios(radii, radii[:1])
         log_correlation = np.log(correlation)
         centered = log_radii - np.mean(log_radii)
         denominator = float(centered @ centered)
@@ -78,8 +82,10 @@ class CorrelationDimension(BaseEstimator):
             raise ValueError("The usable radii are not distinct on the log scale.")
         slope = float(centered @ (log_correlation - np.mean(log_correlation)))
         slope /= denominator
-        intercept = float(np.mean(log_correlation) - slope * np.mean(log_radii))
-        residual = log_correlation - (intercept + slope * log_radii)
+        intercept = float(
+            np.mean(log_correlation) - slope * (np.log(radii[0]) + np.mean(log_radii))
+        )
+        residual = (log_correlation - np.mean(log_correlation)) - slope * centered
         residual_norm = float(
             np.linalg.norm(residual) / max(1.0, np.linalg.norm(log_correlation))
         )

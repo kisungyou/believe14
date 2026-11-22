@@ -85,11 +85,11 @@ def test_release_version_agrees_across_artifacts_and_tag() -> None:
 
 def test_registry_has_exact_release_inventory() -> None:
     infos = list_estimators()
-    assert len(infos) == 30
-    assert len(set(public_estimator_names())) == 30
-    assert sum(info.family == "linear" for info in infos) == 12
-    assert sum(info.family == "nonlinear" for info in infos) == 12
-    assert sum(info.family == "estimation" for info in infos) == 6
+    assert len(infos) == 35
+    assert len(set(public_estimator_names())) == 35
+    assert sum(info.family == "linear" for info in infos) == 14
+    assert sum(info.family == "nonlinear" for info in infos) == 14
+    assert sum(info.family == "estimation" for info in infos) == 7
     for info in infos:
         assert info.estimator.__module__.startswith(f"believe14.{info.family}")
         parameters = inspect.signature(info.estimator.__init__).parameters.values()
@@ -105,9 +105,9 @@ def test_manifest_registry_exports_and_ledgers_agree() -> None:
         manifest = tomllib.load(stream)
     records = manifest["methods"]
     assert manifest["release"] == "0.1.0"
-    assert len(records) == 30
-    assert len({record["name"] for record in records}) == 30
-    assert len({record["ledger"] for record in records}) == 30
+    assert len(records) == 35
+    assert len({record["name"] for record in records}) == 35
+    assert len({record["ledger"] for record in records}) == 35
     assert {record["name"] for record in records} == set(public_estimator_names())
     assert {record["state"] for record in records} == {"public"}
     expected_ledgers: set[Path] = set()
@@ -153,7 +153,7 @@ def test_fit_diagnostics_is_immutable() -> None:
 
 def test_registry_filters_and_lookups_are_explicit() -> None:
     linear = list_estimators(family="linear")
-    assert len(linear) == 12
+    assert len(linear) == 14
     supervised = list_estimators(supervision="supervised")
     assert supervised and all(info.supervision == "supervised" for info in supervised)
     stochastic = list_estimators(capability="stochastic")
@@ -163,6 +163,8 @@ def test_registry_filters_and_lookups_are_explicit() -> None:
     assert "PHATE" not in {info.name for info in stochastic}
     graph = list_estimators(approach="graph")
     assert {info.name for info in graph} == {
+        "LaplacianScore",
+        "LandmarkIsomap",
         "Isomap",
         "LocallyLinearEmbedding",
         "LaplacianEigenmaps",
@@ -185,7 +187,7 @@ def test_validation_status_is_public_and_filterable() -> None:
     experimental = list_estimators(validation_status="experimental")
     assert experimental == ()
     validated = list_estimators(validation_status="validated")
-    assert len(validated) == 30
+    assert len(validated) == 35
     assert get_estimator("UStatisticDimension") in validated
     assert all(info.validation_status == "validated" for info in validated)
     assert list_estimators(family="linear", validation_status="experimental") == ()

@@ -15,7 +15,6 @@ from believe14._core.linalg import (
     centering_state,
     numerical_rank,
     restore_centering,
-    stable_mean,
 )
 from believe14._core.validation import (
     make_rng,
@@ -48,10 +47,8 @@ class PCA(TransformerMixin, BaseEstimator):
             )
         self.n_components_ = k
         self.n_samples_ = n_samples
-        self.mean_ = stable_mean(Xv)
-        self._center_reference_, self._center_offset_mean_ = centering_state(
-            Xv, centered
-        )
+        self._center_reference_, self._center_offset_mean_ = centering_state(Xv)
+        self.mean_ = self._center_reference_.copy()
         self.components_ = np.asarray(vectors_t[:k], dtype=np.float64)
         self.singular_values_ = np.asarray(singular_values[:k], dtype=np.float64)
         with np.errstate(over="raise", invalid="raise", under="ignore"):

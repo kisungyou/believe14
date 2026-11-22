@@ -20,7 +20,6 @@ from believe14._core.linalg import (
     numerical_rank,
     restore_centering,
     stable_center,
-    stable_mean,
 )
 from believe14._core.validation import (
     make_rng,
@@ -116,10 +115,8 @@ class FastICA(TransformerMixin, BaseEstimator):
         unmixing = canonicalize_columns(unmixing.T).T
         mixing = np.asarray(linalg.pinv(unmixing, check_finite=False), dtype=np.float64)
         self.n_components_ = k
-        self.mean_ = stable_mean(Xv)
-        self._center_reference_, self._center_offset_mean_ = centering_state(
-            Xv, centered
-        )
+        self._center_reference_, self._center_offset_mean_ = centering_state(Xv)
+        self.mean_ = self._center_reference_.copy()
         self.whitening_ = whitening
         self.components_ = unmixing
         self.mixing_ = mixing
@@ -334,9 +331,7 @@ class SparsePCA(TransformerMixin, BaseEstimator):
         residual = centered - centered @ B @ A.T
         self.n_components_ = k
         self.mean_ = mean
-        self._center_reference_, self._center_offset_mean_ = centering_state(
-            Xv, centered
-        )
+        self._center_reference_, self._center_offset_mean_ = centering_state(Xv)
         self.components_ = normalized_loadings.T
         self.raw_components_ = B.T
         self.component_norms_ = component_norms

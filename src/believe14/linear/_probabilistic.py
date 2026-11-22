@@ -18,7 +18,6 @@ from believe14._core.linalg import (
     numerical_rank,
     restore_centering,
     stable_center,
-    stable_mean,
 )
 from believe14._core.validation import (
     validate_features,
@@ -180,9 +179,7 @@ class FactorAnalysis(TransformerMixin, BaseEstimator):
         )
         self.n_components_ = k
         self.mean_ = mean
-        self._center_reference_, self._center_offset_mean_ = centering_state(
-            Xv, centered
-        )
+        self._center_reference_, self._center_offset_mean_ = centering_state(Xv)
         self.components_ = loadings.T
         self.loadings_ = loadings
         self.noise_variance_ = noise
@@ -303,10 +300,8 @@ class ProbabilisticPCA(TransformerMixin, BaseEstimator):
             covariance, model_covariance, n_samples
         )
         self.n_components_ = k
-        self.mean_ = stable_mean(Xv)
-        self._center_reference_, self._center_offset_mean_ = centering_state(
-            Xv, centered
-        )
+        self._center_reference_, self._center_offset_mean_ = centering_state(Xv)
+        self.mean_ = self._center_reference_.copy()
         self.components_ = loadings.T
         self.loadings_ = loadings
         self.noise_variance_ = noise

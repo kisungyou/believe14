@@ -24,7 +24,7 @@ model = PHATE(
 )
 embedding = model.fit_transform(X)
 assert embedding.shape == (42, 2)
-assert not hasattr(model, "transform")  # no PHATE extension is claimed in 0.1.0
+assert not hasattr(model, "transform")
 {
     "shape": embedding.shape,
     "potential_distances": model.potential_distances_.shape,
@@ -38,5 +38,12 @@ assert not hasattr(model, "transform")  # no PHATE extension is claimed in 0.1.0
 expose each composite stage. Diagnostics report the final metric-MDS stopping rule
 and any explicit floor regularization. Zero adaptive bandwidth or disconnected
 numerical affinity fails, and `transform` is intentionally absent.
+
+Use `diffusion_time="auto"` to select the bend in the diffusion entropy curve.
+Inspect `diffusion_time_` for the selected time. Set `n_landmarks` to fit
+diffusion and metric MDS on a smaller set of states. In this mode
+`landmark_transitions_` maps the landmark coordinates back to all samples.
+The reported stress measures the landmark fit. The full sample affinity still
+requires quadratic memory.
 
 Primary reference: {cite:p}`moon2019`.

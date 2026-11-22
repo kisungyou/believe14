@@ -1,4 +1,4 @@
-"""Explicit registry of the 30 public believe14 estimators."""
+"""Explicit registry of the 35 public believe14 estimators."""
 
 from __future__ import annotations
 
@@ -175,6 +175,28 @@ _SPECS: tuple[_Spec, ...] = (
         ("Duda, Hart, and Stork (2001)",),
     ),
     _Spec(
+        "LaplacianScore",
+        "linear",
+        ("graph", "feature_selection"),
+        "unsupervised",
+        ("features",),
+        (_FT, _T, _I, Capability.FEATURE_SELECTION),
+        "linear",
+        "O(n^2(p + log n) + p log p) time; O(np + n^2) memory",
+        ("He, Cai, and Niyogi (2005)",),
+    ),
+    _Spec(
+        "NeighborhoodComponentsAnalysis",
+        "linear",
+        ("supervised", "metric_learning", "optimization"),
+        "supervised",
+        ("features", "labels"),
+        (_FT, _T, _S),
+        "linear",
+        "O(min(np^2,n^2p) + E(n^2(p+k) + npk)) time; O(n^2 + np + kp) memory",
+        ("Goldberger et al. (2004)",),
+    ),
+    _Spec(
         "ClassicalMDS",
         "nonlinear",
         ("distance", "spectral"),
@@ -303,8 +325,32 @@ _SPECS: tuple[_Spec, ...] = (
         ("features",),
         (_FT,),
         None,
-        "O(n^2 p + n^3 log(t+1) + T n^2 k) time; O(np + n^2) memory",
+        "O(n^2(p+log n) + nm^2 + m^3 log(t+1) + T m^2 k + A(m+A)) time; "
+        "O(np + n^2 + A) memory",
         ("Moon et al. (2019)",),
+    ),
+    _Spec(
+        "LandmarkMDS",
+        "nonlinear",
+        ("distance", "spectral", "landmark"),
+        "unsupervised",
+        ("features", "precomputed_distances"),
+        (_FT, _T, _R),
+        "nystrom",
+        "O(m^2 p + m^3 + mpk + npk) time; O(np + m^2 + pk + nk) memory for features; "
+        "precomputed: O(n^2 + m^3 + nmk) time; O(n^2) memory",
+        ("de Silva and Tenenbaum (2004)",),
+    ),
+    _Spec(
+        "LandmarkIsomap",
+        "nonlinear",
+        ("graph", "geodesic", "spectral", "landmark"),
+        "unsupervised",
+        ("features",),
+        (_FT, _T),
+        "nystrom",
+        "O(n^2(p+log n) + m(nh+n)log n + m^3 + nmk) time; O(np + n(h+m) + m^2) memory",
+        ("de Silva and Tenenbaum (2002)",),
     ),
     _Spec(
         "CorrelationDimension",
@@ -372,6 +418,17 @@ _SPECS: tuple[_Spec, ...] = (
         "O(n^2(p + D^2 + D log n) + n h^2(p + D^2) + DTn + DQ "
         "+ min(np^2,n^2p)) time; O(n^2 + np + nD + h^2) memory",
         ("Ceruti et al. (2014)",),
+    ),
+    _Spec(
+        "TightLocalEstimator",
+        "estimation",
+        ("nearest_neighbors", "likelihood", "local_dimension"),
+        "unsupervised",
+        ("features",),
+        (),
+        None,
+        "O(n^2(p + log n) + nh^2p) time; O(np + n^2 + h^2p) memory",
+        ("Amsaleg et al. (2022)",),
     ),
 )
 

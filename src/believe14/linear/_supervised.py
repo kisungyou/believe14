@@ -91,12 +91,13 @@ class LinearDiscriminantAnalysis(TransformerMixin, BaseEstimator):
         within = np.zeros((Xv.shape[1], Xv.shape[1]), dtype=np.float64)
         between = np.zeros_like(within)
         class_means = np.empty((classes.size, Xv.shape[1]), dtype=np.float64)
+        contrasts = np.empty_like(class_means)
         counts = np.bincount(encoded)
         for index in range(classes.size):
             centered_group = scaled_centered[encoded == index]
             offset, deviations = stable_center(centered_group)
-            with np.errstate(over="raise", invalid="raise"):
-                class_means[index] = mean + offset * data_scale
+            class_means[index] = stable_mean(Xv[encoded == index])
+            contrasts[index] = np.sqrt(counts[index]) * offset
             within += deviations.T @ deviations
             between += counts[index] * np.outer(offset, offset)
         within_symmetric = (within + within.T) * 0.5
@@ -111,12 +112,13 @@ class LinearDiscriminantAnalysis(TransformerMixin, BaseEstimator):
         within_support = within_values > within_tolerance
         if regularization == 0.0 and np.any(~within_support):
             null_basis = within_vectors[:, ~within_support]
-            null_energy = float(linalg.norm(null_basis.T @ between @ null_basis, ord=2))
-            between_scale = float(linalg.norm(between, ord=2))
+            # Test the displacement before forming its squared scatter.
+            null_contrast = float(linalg.norm(contrasts @ null_basis))
+            between_scale = float(linalg.norm(contrasts))
             null_tolerance = (
                 100.0 * max(Xv.shape) * np.finfo(np.float64).eps * between_scale
             )
-            if null_energy > null_tolerance:
+            if null_contrast > null_tolerance:
                 raise ValueError(
                     "The between-class scatter has discriminative energy in "
                     "null(within_scatter), yielding infinite Fisher eigenvalues; "
@@ -165,9 +167,7 @@ class LinearDiscriminantAnalysis(TransformerMixin, BaseEstimator):
         self.class_means_ = class_means
         self.class_counts_ = counts
         self.mean_ = mean
-        self._center_reference_, self._center_offset_mean_ = centering_state(
-            Xv, centered
-        )
+        self._center_reference_, self._center_offset_mean_ = centering_state(Xv)
         self.components_ = directions.T
         self.eigenvalues_ = selected_values
         self.within_scatter_ = public_within
@@ -214,10 +214,10 @@ class CanonicalCorrelationAnalysis(TransformerMixin, BaseEstimator):
         n_samples = Xv.shape[0]
         Xc, Ux, sx, Vxt = centered_svd(Xv)
         Yc, Uy, sy, Vyt = centered_svd(Yv)
-        self.x_mean_ = stable_mean(Xv)
-        self.y_mean_ = stable_mean(Yv)
-        self._x_center_reference_, self._x_center_offset_mean_ = centering_state(Xv, Xc)
-        self._y_center_reference_, self._y_center_offset_mean_ = centering_state(Yv, Yc)
+        self._x_center_reference_, self._x_center_offset_mean_ = centering_state(Xv)
+        self._y_center_reference_, self._y_center_offset_mean_ = centering_state(Yv)
+        self.x_mean_ = self._x_center_reference_.copy()
+        self.y_mean_ = self._y_center_reference_.copy()
         tx = max(Xc.shape) * np.finfo(np.float64).eps * sx[0]
         ty = max(Yc.shape) * np.finfo(np.float64).eps * sy[0]
         rank_x = int(np.count_nonzero(sx > tx))
@@ -330,13 +330,15 @@ class PLSRegression(TransformerMixin, BaseEstimator):
             raise TypeError("max_iter must be an integer.")
         if self.max_iter < 1:
             raise ValueError("max_iter must be positive.")
-        self.x_mean_, X_centered = stable_center(Xv)
-        self.y_mean_, Y_centered = stable_center(Yv)
-        self._x_center_reference_, self._x_center_offset_mean_ = centering_state(
-            Xv, X_centered
+        self._x_center_reference_, self._x_center_offset_mean_ = centering_state(Xv)
+        self._y_center_reference_, self._y_center_offset_mean_ = centering_state(Yv)
+        self.x_mean_ = self._x_center_reference_.copy()
+        self.y_mean_ = self._y_center_reference_.copy()
+        X_centered = apply_centering(
+            Xv, self._x_center_reference_, self._x_center_offset_mean_
         )
-        self._y_center_reference_, self._y_center_offset_mean_ = centering_state(
-            Yv, Y_centered
+        Y_centered = apply_centering(
+            Yv, self._y_center_reference_, self._y_center_offset_mean_
         )
         if self.scale:
             x_scale = _stable_sample_scale(X_centered)
@@ -349,8 +351,14 @@ class PLSRegression(TransformerMixin, BaseEstimator):
             y_scale = np.ones(Yv.shape[1])
         Xk = X_centered / x_scale
         Yk = Y_centered / y_scale
-        initial_y_energy = float(np.max(np.sum(Yk**2, axis=0)))
-        y_zero_tolerance = max(Yk.shape) * np.finfo(np.float64).eps * initial_y_energy
+        # A common binary scaling in each block leaves weight directions
+        # unchanged, including when the user requests unstandardized PLS.
+        x_exponent = int(np.frexp(np.max(np.abs(Xk)))[1])
+        y_exponent = int(np.frexp(np.max(np.abs(Yk)))[1])
+        Xk = np.ldexp(Xk, -x_exponent)
+        Yk = np.ldexp(Yk, -y_exponent)
+        x_zero_tolerance = max(Xk.shape) * np.finfo(float).eps * np.max(np.abs(Xk))
+        y_zero_tolerance = max(Yk.shape) * np.finfo(float).eps * np.max(np.abs(Yk))
         W = np.empty((n_features, k), dtype=np.float64)
         P = np.empty_like(W)
         Q = np.empty((Yv.shape[1], k), dtype=np.float64)
@@ -359,8 +367,8 @@ class PLSRegression(TransformerMixin, BaseEstimator):
         all_converged = True
 
         for component in range(k):
-            column_norms = np.sum(Yk**2, axis=0)
-            if float(np.max(column_norms)) <= y_zero_tolerance:
+            y_max = float(np.max(np.abs(Yk)))
+            if y_max <= y_zero_tolerance:
                 raise ValueError(
                     "The Y residual became numerically zero before all requested "
                     "PLS components were extracted."
@@ -369,9 +377,8 @@ class PLSRegression(TransformerMixin, BaseEstimator):
             # all of X). A stationary power iteration then need not solve the
             # leading-vector problem. An SVD start certifies the intended mode.
             x_max = float(np.max(np.abs(Xk)))
-            y_max = float(np.max(np.abs(Yk)))
-            if x_max == 0.0:
-                raise ValueError("The X residual became numerically zero.")
+            if x_max <= x_zero_tolerance:
+                raise ValueError("The residual X has insufficient numerical rank.")
             cross = (Xk / x_max).T @ (Yk / y_max)
             _, singular_values, right_t = linalg.svd(
                 cross, full_matrices=False, check_finite=False
@@ -413,8 +420,20 @@ class PLSRegression(TransformerMixin, BaseEstimator):
             iterations[component] = iteration
             all_converged = all_converged and converged
 
-        rotations = W @ linalg.inv(P.T @ W, check_finite=False)
-        standardized_coef = rotations @ Q.T
+        score_rank = int(np.linalg.matrix_rank(T))
+        cross_loadings = P.T @ W
+        if score_rank < k or np.linalg.matrix_rank(cross_loadings) < k:
+            raise ValueError(
+                "Insufficient numerical rank for the requested PLS rotations."
+            )
+        rotations = linalg.solve(cross_loadings.T, W.T, check_finite=False).T
+        # Compute the Y rotation before restoring the physical units of Q.
+        y_rotations = linalg.pinv(Q, check_finite=False).T
+        with np.errstate(over="raise", invalid="raise"):
+            Q = np.ldexp(Q, y_exponent - x_exponent)
+            y_rotations = np.ldexp(y_rotations, x_exponent - y_exponent)
+            T = np.ldexp(T, x_exponent)
+            standardized_coef = rotations @ Q.T
         coef = standardized_coef * y_scale[None, :] / x_scale[:, None]
         intercept = self.y_mean_ - self.x_mean_ @ coef
         fitted_centered = (X_centered / x_scale) @ standardized_coef * y_scale
@@ -440,7 +459,7 @@ class PLSRegression(TransformerMixin, BaseEstimator):
         self.x_loadings_ = P
         self.y_loadings_ = Q
         self.x_rotations_ = rotations
-        self.y_rotations_ = Q @ linalg.pinv(Q.T @ Q, check_finite=False)
+        self.y_rotations_ = y_rotations
         self.x_scores_ = T
         self.n_targets_ = Yv.shape[1]
         self.coef_ = coef
@@ -454,7 +473,7 @@ class PLSRegression(TransformerMixin, BaseEstimator):
             n_iter=int(np.max(iterations)),
             objective_value=relative_residual * relative_residual,
             residual_norm=relative_residual,
-            numerical_rank=int(np.linalg.matrix_rank(T)),
+            numerical_rank=score_rank,
             condition_estimate=float(np.linalg.cond(P.T @ W)),
             warnings=(
                 ()

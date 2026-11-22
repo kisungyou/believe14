@@ -32,6 +32,7 @@ from believe14.estimation import (
     DANCo,
     LevinaBickelMLE,
     MiNDML,
+    TightLocalEstimator,
     TwoNN,
     UStatisticDimension,
 )
@@ -42,7 +43,9 @@ from believe14.linear import (
     FastICA,
     FisherScore,
     GaussianRandomProjection,
+    LaplacianScore,
     LinearDiscriminantAnalysis,
+    NeighborhoodComponentsAnalysis,
     PLSRegression,
     ProbabilisticPCA,
     SlicedAverageVarianceEstimation,
@@ -57,6 +60,8 @@ from believe14.nonlinear import (
     FastMap,
     Isomap,
     KernelPCA,
+    LandmarkIsomap,
+    LandmarkMDS,
     LaplacianEigenmaps,
     LocallyLinearEmbedding,
     LocalTangentSpaceAlignment,
@@ -330,6 +335,10 @@ def _catalog_audit(seed: int) -> dict[str, JSONValue]:
         ProbabilisticPCA(2),
         FastICA(2, random_state=seed, max_iter=1000),
         SparsePCA(2, max_iter=500),
+        LaplacianScore(2, n_neighbors=12),
+        LandmarkMDS(2),
+        LandmarkIsomap(2, n_neighbors=12),
+        TightLocalEstimator(n_neighbors=12),
         ClassicalMDS(2),
         MetricMDS(2, max_iter=300),
         SammonMapping(2, max_iter=300),
@@ -358,6 +367,7 @@ def _catalog_audit(seed: int) -> dict[str, JSONValue]:
     label_estimators: tuple[BaseEstimator, ...] = (
         LinearDiscriminantAnalysis(2, regularization=1e-8),
         FisherScore(3),
+        NeighborhoodComponentsAnalysis(2, max_iter=500),
     )
     response_estimators: tuple[BaseEstimator, ...] = (
         SlicedInverseRegression(2, n_slices=8),

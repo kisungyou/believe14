@@ -11,10 +11,7 @@ kernelspec:
 
 # Supervised and paired reductions
 
-These methods use information beyond one feature matrix. LDA and Fisher Score
-use class labels; PLS, SIR, and SAVE use response variables; CCA uses two
-aligned views {cite:p}`fisher1936,hotelling1936,wold1984,li1991,cook2000,duda2001`.
-They are projections or selectors, not replacement classifiers.
+LDA, Fisher Score and neighborhood components analysis use class labels. PLS, SIR and SAVE use response variables. CCA uses two aligned views {cite:p}`fisher1936,hotelling1936,wold1984,li1991,cook2000,duda2001,goldberger2004nca`.
 
 ```{code-cell} ipython3
 import numpy as np
@@ -23,6 +20,7 @@ from believe14.linear import (
     CanonicalCorrelationAnalysis,
     FisherScore,
     LinearDiscriminantAnalysis,
+    NeighborhoodComponentsAnalysis,
     PLSRegression,
     SlicedAverageVarianceEstimation,
     SlicedInverseRegression,
@@ -50,6 +48,7 @@ models = [
     SlicedInverseRegression(2, n_slices=6).fit(X, target),
     SlicedAverageVarianceEstimation(2, n_slices=6).fit(X, target),
     FisherScore(2).fit(X, labels),
+    NeighborhoodComponentsAnalysis(2, max_iter=200).fit(X, labels),
 ]
 
 for model in models:
@@ -61,11 +60,14 @@ CCA validates row alignment and can transform one view or both views. PLS
 provides `predict` under its frozen NIPALS PLS2 convention. Fisher Score is a
 feature selector: `get_support()` identifies original columns and `transform`
 returns those columns without rotating them. The remaining estimators return
-supervised subspace coordinates for new feature rows.
+supervised subspace coordinates for new feature rows. Neighborhood components
+analysis learns a distance for comparing observations. Its training criterion
+averages the probability of choosing a same-class neighbor.
 
 See the cards for [LDA](../examples/linear_discriminant_analysis.md),
 [CCA](../examples/canonical_correlation_analysis.md),
 [PLS2](../examples/pls_regression.md),
 [SIR](../examples/sliced_inverse_regression.md),
-[SAVE](../examples/sliced_average_variance_estimation.md), and
-[Fisher Score](../examples/fisher_score.md).
+[SAVE](../examples/sliced_average_variance_estimation.md),
+[Fisher Score](../examples/fisher_score.md), and
+[neighborhood components analysis](../examples/neighborhood_components_analysis.md).

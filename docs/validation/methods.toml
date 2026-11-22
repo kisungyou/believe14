@@ -210,3 +210,38 @@ family = "estimation"
 state = "public"
 validation_status = "validated"
 ledger = "estimation/danco.md"
+
+[[methods]]
+name = "LaplacianScore"
+family = "linear"
+state = "public"
+validation_status = "validated"
+ledger = "linear/laplacian_score.md"
+
+[[methods]]
+name = "NeighborhoodComponentsAnalysis"
+family = "linear"
+state = "public"
+validation_status = "validated"
+ledger = "linear/neighborhood_components_analysis.md"
+
+[[methods]]
+name = "LandmarkMDS"
+family = "nonlinear"
+state = "public"
+validation_status = "validated"
+ledger = "nonlinear/landmark-mds.md"
+
+[[methods]]
+name = "LandmarkIsomap"
+family = "nonlinear"
+state = "public"
+validation_status = "validated"
+ledger = "nonlinear/landmark-isomap.md"
+
+[[methods]]
+name = "TightLocalEstimator"
+family = "estimation"
+state = "public"
+validation_status = "validated"
+ledger = "estimation/tight-local-estimator.md"

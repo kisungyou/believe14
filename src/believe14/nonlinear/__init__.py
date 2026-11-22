@@ -1,6 +1,7 @@
 """Nonlinear dimensionality-reduction estimators."""
 
 from ._kernel import DiffusionMap, KernelPCA
+from ._landmarks import LandmarkIsomap, LandmarkMDS
 from ._manifold import (
     Isomap,
     LaplacianEigenmaps,
@@ -18,6 +19,8 @@ __all__ = [
     "FastMap",
     "Isomap",
     "KernelPCA",
+    "LandmarkIsomap",
+    "LandmarkMDS",
     "LaplacianEigenmaps",
     "LocalTangentSpaceAlignment",
     "LocallyLinearEmbedding",

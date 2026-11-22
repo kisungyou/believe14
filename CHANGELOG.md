@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Add Laplacian Score, Neighborhood Components Analysis, Landmark MDS,
+  Landmark Isomap and the Tight Local Estimator, with executable examples and
+  method-specific validation.
+- Add reusable exact neighbor graphs, trustworthiness and continuity scores,
+  per-neighborhood-size Levina–Bickel local estimates, and optional landmark
+  diffusion and automatic diffusion-time selection in PHATE.
+- Correct PLS rank and scaling, compensated centering, Fisher null-space
+  identification and class means, kernel centering and pairwise model selection,
+  relative SMACOF stopping, PHATE bandwidths, and subnormal neighbor distances.
+  Address correlation-integral plateaus and log-radius scaling, DANCo angular
+  concentration, and tied radii in the one-neighbor MiND likelihood.
+
 - Initialize PLS components from the dominant residual cross-covariance direction
   so target ordering or a subdominant initial direction cannot produce a false
   failure or an incorrect converged component.

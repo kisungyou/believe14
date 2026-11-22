@@ -20,7 +20,7 @@ cost, and whether a cited out-of-sample rule exists.
 from believe14 import Capability, list_estimators
 
 all_methods = list_estimators()
-assert len(all_methods) == 30
+assert len(all_methods) == 35
 
 inductive = [
     info.name
@@ -48,8 +48,8 @@ print(f"transductive reducers: {len(transductive)}")
    lead to different estimators; precomputed distances and kernels are accepted
    only where the registry advertises them.
 3. **Decide whether new observations must be embedded.** A transductive method
-   deliberately has no `transform`. FastMap, Kernel PCA, and Diffusion Map are
-   the only nonlinear 0.1.0 methods with cited extensions.
+   deliberately has no `transform`. FastMap, Kernel PCA, Diffusion Map, Landmark MDS,
+   and Landmark Isomap provide out-of-sample coordinates.
 4. **Check the failure regime.** Read the method card before fitting tied
    neighbors, a disconnected graph, rank-deficient data, or extreme scales.
 5. **Read `diagnostics_`.** A successful fit reports the solver and honest
@@ -66,6 +66,37 @@ supervised_linear = list_estimators(family="linear", supervision="supervised")
 print("graph:", ", ".join(info.name for info in graph_methods))
 print("supervised linear:", ", ".join(info.name for info in supervised_linear))
 ```
+
+## Check neighborhood preservation
+
+Trustworthiness penalizes neighbors introduced by an embedding. Continuity
+penalizes original neighbors lost in the embedding. Both scores range from
+zero to one. Compare them at the same neighborhood size. For exact distance
+ties, both rankings follow the original row order. The rank penalties follow
+Venna and Kaski {cite:p}`venna2001neighborhood`.
+
+```{code-cell} ipython3
+import numpy as np
+
+from believe14.linear import PCA
+from believe14.metrics import continuity, trustworthiness
+from believe14.neighbors import build_neighbor_graph
+from believe14.nonlinear import Isomap
+
+X = np.random.default_rng(14).normal(size=(40, 4))
+neighbors = build_neighbor_graph(X, n_neighbors=12)
+embeddings = {
+    "PCA": PCA(2).fit_transform(X),
+    "Isomap": Isomap(2, n_neighbors=8).fit_transform(X, neighbors=neighbors),
+}
+for name, coordinates in embeddings.items():
+    print(name, trustworthiness(X, coordinates, n_neighbors=5),
+          continuity(X, coordinates, n_neighbors=5))
+```
+
+The same graph can serve any smaller neighborhood on the same ordered
+observations. It stores distances and row indices and excludes each row
+from its own neighbors. Each estimator applies its own graph weights.
 
 ## Executable coverage
 

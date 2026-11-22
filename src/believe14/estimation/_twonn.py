@@ -11,6 +11,7 @@ from sklearn.base import BaseEstimator
 
 from believe14._core.diagnostics import diagnostics
 from believe14._core.validation import validate_features
+from believe14.neighbors import ExactNeighborGraph
 
 from ._common import log_distance_ratios, neighbor_distances, unit_interval
 
@@ -36,7 +37,13 @@ class TwoNN(BaseEstimator):
     def __init__(self, *, discard_fraction: float = 0.1) -> None:
         self.discard_fraction = discard_fraction
 
-    def fit(self, X: ArrayLike, y: ArrayLike | None = None) -> Self:
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
+    ) -> Self:
         """Fit the origin-constrained empirical-CDF regression."""
 
         del y
@@ -44,7 +51,7 @@ class TwoNN(BaseEstimator):
         discard = unit_interval(
             self.discard_fraction, name="discard_fraction", open_left=True
         )
-        distances, _ = neighbor_distances(Xv, 2)
+        distances, _ = neighbor_distances(Xv, 2, neighbors=neighbors)
         log_ratios = np.sort(
             log_distance_ratios(distances[:, 1], distances[:, 0]), kind="stable"
         )

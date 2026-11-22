@@ -76,7 +76,7 @@ def discover_example_cards(docs_root: Path) -> tuple[ExampleCard, ...]:
         for name in expected.keys() & by_name.keys()
         if by_name[name].family != expected[name].family
     )
-    if duplicates or missing or unexpected or mismatched or len(cards) != 30:
+    if duplicates or missing or unexpected or mismatched or len(cards) != 35:
         raise ValueError(
             "Executable method-card coverage does not match the public registry: "
             f"count={len(cards)}, duplicates={sorted(set(duplicates))}, "

@@ -14,6 +14,9 @@
   exactly as Equation 9. Defaults are the paper's fixed range 10–20.
 - **Output:** global real `dimension_`, per-observation mean
   `local_dimensions_`, estimates by `k`, and their across-scale variation.
+  Entry `local_dimensions_by_k_[i,j]` is the local likelihood estimate for
+  sample `i` at neighbor count `k_values_[j]`. An exact neighbor graph for
+  the same data can supply radii through `k_max`.
 - **Invariances:** translation, orthogonal transformation, uniform scaling, and
   row permutation. Exact distance ties use stable row-index ordering.
 - **Failure policy:** reject duplicates/zero radii and any local denominator made

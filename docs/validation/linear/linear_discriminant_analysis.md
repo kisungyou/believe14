@@ -10,6 +10,8 @@
   explicit fallback scale is `trace(Sw+Sb)/p`. Zero means exactly zero. If `Sb`
   has energy in `null(Sw)` at zero regularization, the Fisher quotient has
   infinite directions and fitting fails rather than silently discarding them.
+- The null-space test projects weighted class-mean contrasts before squaring
+  them. Reported class means are computed from each class directly.
 - Dimensional limit: at most `min(number_of_classes-1, p)` and no more than the
   solved denominator rank. Singular unsupported requests fail explicitly.
 - Evidence: generalized-eigen residual, isotropic two-class direction, label

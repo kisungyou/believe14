@@ -17,63 +17,48 @@ class SymmetricEigenResult:
     residual_norm: float
 
 
-def stable_center(
-    X: NDArray[np.float64],
-) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Return a stable column mean and centered matrix.
+def _float_units(value: float) -> int:
+    """Express a finite binary64 value in units of 2**-1074, exactly."""
 
-    A reference shift preserves small, exactly representable variations around a
-    large common offset.  The scaled fallback also covers data spanning opposite
-    float64 extremes, where forming the reference differences would overflow.
-    """
-
-    reference = np.asarray(X[0], dtype=np.float64)
-    try:
-        with np.errstate(over="raise", invalid="raise"):
-            offsets = X - reference
-        offset_scale = float(np.max(np.abs(offsets), initial=0.0))
-        if offset_scale == 0.0:
-            return reference.copy(), np.zeros_like(X, dtype=np.float64)
-        offset_mean = (
-            np.mean(offsets / offset_scale, axis=0, dtype=np.float64) * offset_scale
-        )
-        with np.errstate(over="raise", invalid="raise"):
-            mean = reference + offset_mean
-            centered = offsets - offset_mean
-        return np.asarray(mean, dtype=np.float64), np.asarray(
-            centered, dtype=np.float64
-        )
-    except FloatingPointError:
-        scale = float(np.max(np.abs(X), initial=0.0))
-        if scale == 0.0:
-            return (
-                np.zeros(X.shape[1], dtype=np.float64),
-                np.zeros_like(X, dtype=np.float64),
-            )
-        scaled = X / scale
-        scaled_reference = scaled[0]
-        scaled_offsets = scaled - scaled_reference
-        scaled_offset_mean = np.mean(scaled_offsets, axis=0, dtype=np.float64)
-        with np.errstate(over="raise", invalid="raise"):
-            mean = (scaled_reference + scaled_offset_mean) * scale
-            centered = (scaled_offsets - scaled_offset_mean) * scale
-        return np.asarray(mean, dtype=np.float64), np.asarray(
-            centered, dtype=np.float64
-        )
-
-
-def stable_mean(X: NDArray[np.float64]) -> NDArray[np.float64]:
-    """Compute a reference-shifted column mean."""
-
-    return stable_center(X)[0]
+    numerator, denominator = value.as_integer_ratio()
+    return numerator << (1075 - denominator.bit_length())
 
 
 def centering_state(
-    X: NDArray[np.float64], centered: NDArray[np.float64]
+    X: NDArray[np.float64],
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Capture the reference and offset mean used by :func:`stable_center`."""
+    """Compute each mean as a leading float and its rounded residual.
 
-    return X[0].copy(), -centered[0].copy()
+    All binary64 observations are integer multiples of the smallest subnormal.
+    An integer accumulator preserves those units through cancellation, and avoids
+    both overflow and a dependence on the scale of any other column.
+    """
+
+    count = X.shape[0]
+    denominator = count << 1074
+    high = np.empty(X.shape[1], dtype=np.float64)
+    low = np.empty_like(high)
+    for j, column in enumerate(X.T):
+        total = sum(_float_units(float(x)) for x in column)
+        leading = total / denominator
+        high[j] = leading
+        low[j] = (total - count * _float_units(leading)) / denominator
+    return high, low
+
+
+def stable_center(
+    X: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Compute correctly rounded column means and center using both mean parts."""
+
+    high, low = centering_state(X)
+    return high, apply_centering(X, high, low)
+
+
+def stable_mean(X: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Compute the rounded column mean without forming a centered array."""
+
+    return centering_state(X)[0]
 
 
 def apply_centering(
@@ -81,24 +66,9 @@ def apply_centering(
     reference: NDArray[np.float64],
     offset_mean: NDArray[np.float64],
 ) -> NDArray[np.float64]:
-    """Apply a fitted reference-shift centering state to query observations."""
+    """Subtract both fitted mean parts with compensated arithmetic."""
 
-    try:
-        with np.errstate(over="raise", invalid="raise"):
-            return np.asarray((X - reference) - offset_mean, dtype=np.float64)
-    except FloatingPointError:
-        scale = max(
-            float(np.max(np.abs(X), initial=0.0)),
-            float(np.max(np.abs(reference), initial=0.0)),
-            float(np.max(np.abs(offset_mean), initial=0.0)),
-        )
-        if scale == 0.0:
-            return np.zeros_like(X, dtype=np.float64)
-        with np.errstate(over="raise", invalid="raise"):
-            return np.asarray(
-                ((X / scale - reference / scale) - offset_mean / scale) * scale,
-                dtype=np.float64,
-            )
+    return restore_centering(X, -reference, -offset_mean)
 
 
 def restore_centering(

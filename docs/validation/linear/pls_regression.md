@@ -15,7 +15,7 @@
   The subsequent NIPALS updates retain the public `tol` and `max_iter` limits.
 - Mapping: X rotations are `R=W(P^T W)^-1`; predictions in standardized space
   are `X R Q^T`, then target scaling and the fitted intercept are restored.
-  `predict` evaluates this affine map through the fitted reference-shifted
+  `predict` evaluates this affine map through the fitted two-part
   centering state, which is algebraically identical to `X @ coef_ + intercept_`
   but avoids catastrophic cancellation at large common offsets. The coefficient
   attributes record that algebraic affine form; direct raw evaluation is not the
@@ -26,6 +26,11 @@
   Passing targets to `transform` returns both X scores and target projection
   scores; `fit_transform(X, y)` follows that paired convention.
 - Stopping: sign-invariant X-weight change; every component must converge.
+  Fitting normalizes both residual blocks by powers of two before iteration
+  and restores the score and loading units afterward. It checks residual X
+  and Y residual amplitudes and rejects rank-deficient score or rotation
+  systems. The target rotations use the direct SVD pseudoinverse of the
+  loading matrix, preserving weak representable target directions.
   Degenerate X weights, Y weights, scores, or prematurely exhausted Y residuals
   are explicit failures. Diagnostics report the relative residual sum of squares,
   avoiding an unrepresentable raw SSE without changing the fitted NIPALS problem.

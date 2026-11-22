@@ -27,7 +27,7 @@ documentation build against the packaged wheel.
   </a>
   <a class="landing-card" href="../guides/intrinsic-dimension.html">
     <h2>Intrinsic dimension</h2>
-    <p>Compare all six estimators and understand their advertised regimes and limitations.</p>
+    <p>Compare global and local estimators and understand their advertised regimes and limitations.</p>
   </a>
 </div>
 

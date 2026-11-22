@@ -11,6 +11,7 @@ from sklearn.base import BaseEstimator
 
 from believe14._core.diagnostics import diagnostics
 from believe14._core.validation import validate_features
+from believe14.neighbors import ExactNeighborGraph
 
 from ._common import log_distance_ratios, neighbor_distances, positive_integer
 
@@ -22,6 +23,9 @@ class LevinaBickelMLE(BaseEstimator):
     Levina and Bickel.  ``bias_correction=True`` replaces its ``k - 1`` factor
     by the paper's asymptotically unbiased ``k - 2`` factor.  The global result
     is the arithmetic mean over observations and then over ``k`` (Equation 9).
+
+    The matrix ``local_dimensions_by_k_`` records each observation (rows)
+    at each fitted neighbor count (columns in ``k_values_`` order).
 
     References
     ----------
@@ -39,7 +43,13 @@ class LevinaBickelMLE(BaseEstimator):
         self.k_max = k_max
         self.bias_correction = bias_correction
 
-    def fit(self, X: ArrayLike, y: ArrayLike | None = None) -> Self:
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
+    ) -> Self:
         """Fit the averaged local likelihood estimator."""
 
         del y
@@ -52,7 +62,7 @@ class LevinaBickelMLE(BaseEstimator):
             raise ValueError("k_max must be smaller than the number of samples.")
         if not isinstance(self.bias_correction, (bool, np.bool_)):
             raise TypeError("bias_correction must be boolean.")
-        distances, _ = neighbor_distances(Xv, k_max)
+        distances, _ = neighbor_distances(Xv, k_max, neighbors=neighbors)
         estimates = np.empty((k_max - k_min + 1, Xv.shape[0]), dtype=np.float64)
         for offset, k_value in enumerate(range(k_min, k_max + 1)):
             log_ratios = log_distance_ratios(
@@ -73,6 +83,7 @@ class LevinaBickelMLE(BaseEstimator):
         by_k = np.mean(estimates, axis=1)
         self.dimension_ = float(np.mean(by_k))
         self.local_dimensions_ = np.mean(estimates, axis=0)
+        self.local_dimensions_by_k_ = estimates.T
         self.dimensions_by_k_ = by_k
         self.k_values_ = np.arange(k_min, k_max + 1, dtype=np.int64)
         self.diagnostics_ = diagnostics(

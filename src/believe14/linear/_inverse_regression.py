@@ -99,10 +99,8 @@ class SlicedInverseRegression(TransformerMixin, BaseEstimator):
             )
         )
         self.n_components_ = directions.shape[1]
-        self.mean_, centered = stable_center(Xv)
-        self._center_reference_, self._center_offset_mean_ = centering_state(
-            Xv, centered
-        )
+        self._center_reference_, self._center_offset_mean_ = centering_state(Xv)
+        self.mean_ = self._center_reference_.copy()
         self.components_ = directions.T
         self.eigenvalues_ = values
         self.slice_labels_ = slices
@@ -153,10 +151,8 @@ class SlicedAverageVarianceEstimation(TransformerMixin, BaseEstimator):
             )
         )
         self.n_components_ = directions.shape[1]
-        self.mean_, centered = stable_center(Xv)
-        self._center_reference_, self._center_offset_mean_ = centering_state(
-            Xv, centered
-        )
+        self._center_reference_, self._center_offset_mean_ = centering_state(Xv)
+        self.mean_ = self._center_reference_.copy()
         self.components_ = directions.T
         self.eigenvalues_ = values
         self.slice_labels_ = slices

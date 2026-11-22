@@ -252,7 +252,7 @@ def _method_card_docnames(docs_root: Path) -> dict[str, str]:
 
     expected = {info.name: info.family for info in list_estimators()}
     observed_families = {name: family for name, (family, _) in observed.items()}
-    if len(observed) != 30 or observed_families != expected:
+    if len(observed) != 35 or observed_families != expected:
         raise ValueError("method cards do not exactly match the public registry")
     return {name: docname for name, (_, docname) in observed.items()}
 
@@ -515,9 +515,9 @@ def _inventory_errors(
             errors.append(f"Missing executable guide page: guides/{slug}.html")
 
     example_pages = sorted((site / "examples").glob("*.html"))
-    if len(example_pages) != 30:
+    if len(example_pages) != 35:
         errors.append(
-            f"Expected exactly 30 rendered method cards, found {len(example_pages)}"
+            f"Expected exactly 35 rendered method cards, found {len(example_pages)}"
         )
     for page in example_pages:
         rendered = page.read_text(encoding="utf-8")
@@ -606,8 +606,8 @@ def audit_site(site: Path) -> list[str]:
     if not errors:
         print(
             f"Audited {len(pages)} HTML pages, {math_count} math nodes, "
-            f"{local_reference_count} local references, 30 API anchors, "
-            "30 executed method cards, and 6 guides."
+            f"{local_reference_count} local references, 35 API anchors, "
+            "35 executed method cards, and 6 guides."
         )
     return errors
 

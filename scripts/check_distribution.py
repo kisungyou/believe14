@@ -137,9 +137,9 @@ def check_sdist(path: Path, info: ReleaseInfo, root: Path) -> None:
                 "docs/validation/ledger-template.md",
             }
         ]
-        if len(ledgers) != 30:
+        if len(ledgers) != 35:
             raise DistributionError(
-                f"The sdist contains {len(ledgers)} method ledgers; expected 30."
+                f"The sdist contains {len(ledgers)} method ledgers; expected 35."
             )
 
 

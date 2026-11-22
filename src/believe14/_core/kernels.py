@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from .distances import pairwise_scaled_squared_distances
+from .linalg import stable_center, stable_mean
 
 
 def rbf_kernel(
@@ -23,38 +24,34 @@ def rbf_kernel(
 def center_kernel(
     kernel: NDArray[np.float64],
 ) -> tuple[NDArray[np.float64], NDArray[np.float64], float]:
-    """Center a square Gram matrix using a common reference and scaling.
+    """Compute J K J, plus the training column effect for Nyström extension.
 
-    The second return value is the stable column effect ``column_mean -
-    total_mean`` needed to center query kernels.  The third value remains for
-    the private cross-centering interface and is identically zero.
+    The two-way contrast removes large row and column offsets before centering.
+    This is equivalent to replacing each feature-space vector by its difference
+    from the first training observation. J annihilates that translation.
     """
 
-    reference = float(kernel[0, 0])
     try:
         with np.errstate(over="raise", invalid="raise"):
-            shifted = kernel - reference
-        scale = float(np.max(np.abs(shifted), initial=0.0))
-        if scale == 0.0:
-            return np.zeros_like(kernel), np.zeros(kernel.shape[1]), 0.0
-        scaled = shifted / scale
+            differences = kernel - kernel[0]
+            contrast = differences - differences[:, :1]
+        _, left_centered = stable_center(contrast)
+        _, transposed = stable_center(left_centered.T)
+        centered = transposed.T
     except FloatingPointError:
-        scale = float(np.max(np.abs(kernel), initial=0.0))
-        if scale == 0.0:
-            return np.zeros_like(kernel), np.zeros(kernel.shape[1]), 0.0
-        scaled_kernel = kernel / scale
-        scaled = scaled_kernel - scaled_kernel[0, 0]
-    column_mean = np.mean(scaled, axis=0, dtype=np.float64)
-    total_mean = float(np.mean(column_mean, dtype=np.float64))
-    centered_scaled = scaled - column_mean[None, :] - column_mean[:, None] + total_mean
-    with np.errstate(over="raise", invalid="raise", under="ignore"):
-        centered = centered_scaled * scale
-        column_effect = (column_mean - total_mean) * scale
-    return (
-        np.asarray(centered * 0.5 + centered.T * 0.5, dtype=np.float64),
-        np.asarray(column_effect, dtype=np.float64),
-        0.0,
-    )
+        # The anchored contrast can exceed float64 even when J K J fits.
+        # In that case apply each centering operator directly.
+        _, left_centered = stable_center(kernel)
+        _, transposed = stable_center(left_centered.T)
+        centered = transposed.T
+    _, row_centered_t = stable_center(kernel.T)
+    column_effect = stable_mean(row_centered_t.T)
+    # Only entries that actually differ require symmetrization. Equal
+    # subnormal entries would change under two separate halvings.
+    different = centered != centered.T
+    result = centered.copy()
+    result[different] = centered[different] * 0.5 + centered.T[different] * 0.5
+    return result, column_effect, 0.0
 
 
 def center_cross_kernel(
@@ -63,29 +60,9 @@ def center_cross_kernel(
     training_column_mean: NDArray[np.float64],
     training_total_mean: float,
 ) -> NDArray[np.float64]:
-    """Center query-to-training kernel values using training statistics."""
+    """Apply independent row centering and the fitted training column effect."""
 
     del training_total_mean
-    reference = kernel[:, :1]
-    try:
-        with np.errstate(over="raise", invalid="raise"):
-            shifted = kernel - reference
-        scale = float(np.max(np.abs(shifted), initial=0.0))
-        if scale == 0.0:
-            row_centered = np.zeros_like(kernel)
-        else:
-            scaled = shifted / scale
-            row_centered = (
-                scaled - np.mean(scaled, axis=1, keepdims=True, dtype=np.float64)
-            ) * scale
-    except FloatingPointError:
-        scale = float(np.max(np.abs(kernel), initial=0.0))
-        if scale == 0.0:
-            row_centered = np.zeros_like(kernel)
-        else:
-            scaled_kernel = kernel / scale
-            shifted = scaled_kernel - scaled_kernel[:, :1]
-            row_centered = (
-                shifted - np.mean(shifted, axis=1, keepdims=True, dtype=np.float64)
-            ) * scale
-    return np.asarray(row_centered - training_column_mean[None, :], dtype=np.float64)
+    # Each query must be centered independently of every other query.
+    _, centered_t = stable_center(kernel.T)
+    return np.asarray(centered_t.T - training_column_mean[None, :], dtype=np.float64)

@@ -1,6 +1,6 @@
 # Nonlinear methods
 
-The nonlinear family contains twelve distance, kernel, graph, diffusion,
+The nonlinear family contains fourteen distance, kernel, graph, diffusion,
 stress, and stochastic embeddings. Check each card's out-of-sample status:
 transductive methods intentionally do not invent a `transform` operation.
 
@@ -17,6 +17,8 @@ transductive methods intentionally do not invent a `transform` operation.
   <a class="method-card" href="../examples/local_tangent_space_alignment.html"><span class="method-card-title">LocalTangentSpaceAlignment</span><span class="method-card-description">Local tangent SVDs assembled into a global alignment.</span></a>
   <a class="method-card" href="../examples/tsne.html"><span class="method-card-title">TSNE</span><span class="method-card-description">Exact dense symmetric t-SNE with explicit convergence diagnostics.</span></a>
   <a class="method-card" href="../examples/phate.html"><span class="method-card-title">PHATE</span><span class="method-card-description">Diffusion-potential distances followed by metric MDS.</span></a>
+  <a class="method-card" href="../examples/landmark_mds.html"><span class="method-card-title">LandmarkMDS</span><span class="method-card-description">Embed samples using distances to a subset of reference points.</span></a>
+  <a class="method-card" href="../examples/landmark_isomap.html"><span class="method-card-title">LandmarkIsomap</span><span class="method-card-description">Embed graph geodesics using shortest paths from selected landmarks.</span></a>
 </div>
 
 ```{toctree}
@@ -35,4 +37,6 @@ transductive methods intentionally do not invent a `transform` operation.
 ../examples/local_tangent_space_alignment
 ../examples/tsne
 ../examples/phate
+../examples/landmark_mds
+../examples/landmark_isomap
 ```

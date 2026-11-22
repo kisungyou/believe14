@@ -12,7 +12,6 @@ from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_is_fitted
 
 from believe14._core.diagnostics import diagnostics
-from believe14._core.distances import exact_neighbors
 from believe14._core.graphs import (
     graph_shortest_paths,
     neighbor_graph,
@@ -29,6 +28,7 @@ from believe14._core.validation import (
     validate_n_neighbors,
     validate_positive_real,
 )
+from believe14.neighbors import ExactNeighborGraph, build_neighbor_graph
 
 from ._common import classical_embedding, output_names
 from ._spectral import eigh_without_stationary
@@ -41,7 +41,13 @@ class Isomap(BaseEstimator):
         self.n_components = n_components
         self.n_neighbors = n_neighbors
 
-    def fit(self, X: ArrayLike, y: ArrayLike | None = None) -> Isomap:
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
+    ) -> Isomap:
         """Fit the transductive geodesic-distance embedding."""
 
         del y
@@ -52,7 +58,9 @@ class Isomap(BaseEstimator):
         n_neighbors = validate_n_neighbors(
             self.n_neighbors, n_samples=features.shape[0]
         )
-        neighbor_distances, _ = exact_neighbors(features, n_neighbors)
+        if neighbors is None:
+            neighbors = build_neighbor_graph(features, n_neighbors)
+        neighbor_distances, _ = neighbors.query(features, n_neighbors)
         if np.any(neighbor_distances <= 0.0):
             raise ValueError(
                 "Isomap does not admit duplicate observations or zero-length "
@@ -61,6 +69,7 @@ class Isomap(BaseEstimator):
         graph = neighbor_graph(
             features,
             n_neighbors=n_neighbors,
+            neighbors=neighbors,
             weighting="binary",
             symmetrize="union",
         )
@@ -82,11 +91,15 @@ class Isomap(BaseEstimator):
         return self
 
     def fit_transform(
-        self, X: ArrayLike, y: ArrayLike | None = None
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
     ) -> NDArray[np.float64]:
         """Fit and return the training coordinates."""
 
-        return self.fit(X, y).embedding_.copy()
+        return self.fit(X, y, neighbors=neighbors).embedding_.copy()
 
     def get_feature_names_out(
         self, input_features: ArrayLike | None = None
@@ -112,7 +125,13 @@ class LocallyLinearEmbedding(BaseEstimator):
         self.n_neighbors = n_neighbors
         self.regularization = regularization
 
-    def fit(self, X: ArrayLike, y: ArrayLike | None = None) -> LocallyLinearEmbedding:
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
+    ) -> LocallyLinearEmbedding:
         """Fit the transductive reconstruction-weight embedding."""
 
         del y
@@ -126,18 +145,21 @@ class LocallyLinearEmbedding(BaseEstimator):
         regularization = validate_positive_real(
             self.regularization, name="regularization"
         )
+        if neighbors is None:
+            neighbors = build_neighbor_graph(features, n_neighbors)
         graph = neighbor_graph(
             features,
             n_neighbors=n_neighbors,
+            neighbors=neighbors,
             weighting="binary",
             symmetrize="union",
         )
         require_connected(graph)
-        _, indices = exact_neighbors(features, n_neighbors)
+        indices = neighbors.indices[:, :n_neighbors]
         weights = np.zeros((features.shape[0], features.shape[0]), dtype=np.float64)
         reconstruction = np.zeros_like(features)
-        for row, neighbors in enumerate(indices):
-            offsets = features[neighbors] - features[row]
+        for row, row_indices in enumerate(indices):
+            offsets = features[row_indices] - features[row]
             offset_scale = float(np.max(np.abs(offsets), initial=0.0))
             if offset_scale == 0.0:
                 raise ValueError(
@@ -169,7 +191,7 @@ class LocallyLinearEmbedding(BaseEstimator):
             if abs(denominator) <= denominator_tolerance:
                 raise FloatingPointError("An LLE weight normalization is singular.")
             normalized_weights = local / denominator
-            weights[row, neighbors] = normalized_weights
+            weights[row, row_indices] = normalized_weights
             reconstruction[row] = -(normalized_weights @ offsets)
         identity_minus = np.eye(features.shape[0], dtype=np.float64) - weights
         alignment = identity_minus.T @ identity_minus
@@ -208,11 +230,15 @@ class LocallyLinearEmbedding(BaseEstimator):
         return self
 
     def fit_transform(
-        self, X: ArrayLike, y: ArrayLike | None = None
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
     ) -> NDArray[np.float64]:
         """Fit and return the training coordinates."""
 
-        return self.fit(X, y).embedding_.copy()
+        return self.fit(X, y, neighbors=neighbors).embedding_.copy()
 
     def get_feature_names_out(
         self, input_features: ArrayLike | None = None
@@ -240,7 +266,13 @@ class LaplacianEigenmaps(BaseEstimator):
         self.weighting = weighting
         self.gamma = gamma
 
-    def fit(self, X: ArrayLike, y: ArrayLike | None = None) -> LaplacianEigenmaps:
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
+    ) -> LaplacianEigenmaps:
         """Fit the transductive graph-Laplacian embedding."""
 
         del y
@@ -257,6 +289,7 @@ class LaplacianEigenmaps(BaseEstimator):
         graph = neighbor_graph(
             features,
             n_neighbors=n_neighbors,
+            neighbors=neighbors,
             weighting=self.weighting,
             gamma=gamma if self.weighting == "heat" else None,
             symmetrize="union",
@@ -299,11 +332,15 @@ class LaplacianEigenmaps(BaseEstimator):
         return self
 
     def fit_transform(
-        self, X: ArrayLike, y: ArrayLike | None = None
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
     ) -> NDArray[np.float64]:
         """Fit and return the training coordinates."""
 
-        return self.fit(X, y).embedding_.copy()
+        return self.fit(X, y, neighbors=neighbors).embedding_.copy()
 
     def get_feature_names_out(
         self, input_features: ArrayLike | None = None
@@ -323,7 +360,11 @@ class LocalTangentSpaceAlignment(BaseEstimator):
         self.n_neighbors = n_neighbors
 
     def fit(
-        self, X: ArrayLike, y: ArrayLike | None = None
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
     ) -> LocalTangentSpaceAlignment:
         """Fit the transductive local-tangent alignment embedding."""
 
@@ -336,18 +377,21 @@ class LocalTangentSpaceAlignment(BaseEstimator):
         n_neighbors = validate_n_neighbors(
             self.n_neighbors, n_samples=features.shape[0], minimum=n_components + 1
         )
+        if neighbors is None:
+            neighbors = build_neighbor_graph(features, n_neighbors)
         graph = neighbor_graph(
             features,
             n_neighbors=n_neighbors,
+            neighbors=neighbors,
             weighting="binary",
             symmetrize="union",
         )
         require_connected(graph)
-        _, neighbor_indices = exact_neighbors(features, n_neighbors)
+        neighbor_indices = neighbors.indices[:, :n_neighbors]
         alignment = np.zeros((features.shape[0], features.shape[0]), dtype=np.float64)
-        for row, neighbors in enumerate(neighbor_indices):
+        for row, row_indices in enumerate(neighbor_indices):
             local_indices = np.concatenate(
-                (np.asarray([row], dtype=np.int64), neighbors)
+                (np.asarray([row], dtype=np.int64), row_indices)
             )
             local = features[local_indices]
             _, left, singular_values, _ = centered_svd(local)
@@ -382,11 +426,15 @@ class LocalTangentSpaceAlignment(BaseEstimator):
         return self
 
     def fit_transform(
-        self, X: ArrayLike, y: ArrayLike | None = None
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
     ) -> NDArray[np.float64]:
         """Fit and return the training coordinates."""
 
-        return self.fit(X, y).embedding_.copy()
+        return self.fit(X, y, neighbors=neighbors).embedding_.copy()
 
     def get_feature_names_out(
         self, input_features: ArrayLike | None = None

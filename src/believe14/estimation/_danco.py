@@ -12,6 +12,7 @@ from sklearn.base import BaseEstimator
 from believe14._core.diagnostics import diagnostics
 from believe14._core.linalg import centered_svd, numerical_rank
 from believe14._core.validation import make_rng, validate_features
+from believe14.neighbors import ExactNeighborGraph
 
 from ._common import (
     angular_parameters,
@@ -51,7 +52,13 @@ class DANCo(BaseEstimator):
         self.max_dimension = max_dimension
         self.random_state = random_state
 
-    def fit(self, X: ArrayLike, y: ArrayLike | None = None) -> Self:
+    def fit(
+        self,
+        X: ArrayLike,
+        y: ArrayLike | None = None,
+        *,
+        neighbors: ExactNeighborGraph | None = None,
+    ) -> Self:
         """Calibrate and minimize the joint paper divergence."""
 
         del y
@@ -79,7 +86,9 @@ class DANCo(BaseEstimator):
                 "DANCo's angular statistic is degenerate for collinear data; "
                 "believe14 0.1.0 supports intrinsic dimensions of at least 2."
             )
-        ratios, indices, radii = normalized_minimum_distances(Xv, n_neighbors)
+        ratios, indices, radii = normalized_minimum_distances(
+            Xv, n_neighbors, neighbors=neighbors
+        )
         data_ml, _, _, data_converged, data_evaluations = maximize_mind_likelihood(
             ratios, n_neighbors, max_dimension
         )

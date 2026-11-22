@@ -7,7 +7,7 @@ family for its complete set of executable method cards, or follow an estimator
 name in the catalog directly to its card.
 
 Validation status refers to the recorded evidence and documented scope, not a
-general accuracy or maturity guarantee. All 30 entries have validated status.
+general accuracy or maturity guarantee. All 35 entries have validated status.
 `UStatisticDimension` passed the prospective accuracy protocol on nine specified
 low-dimensional configurations; its historical failed panel and higher-dimensional
 limitations remain documented. Successful numerical diagnostics alone do not
@@ -21,7 +21,8 @@ features, `q` response/paired features, `k` output components, `h` neighbors, an
 `D` candidate dimension bound. `T` counts solver iterations (per component for
 PLS), `C` inner coordinate sweeps, `E` objective/gradient evaluations including
 line searches, `R` pivot sweeps, `S` slices, `L` classes, `B` radii and `Q` scalar quadrature
-evaluations per candidate. PHATE's `t` is diffusion time. Fixed entropy-search
+evaluations per candidate. `m` counts landmarks or full diffusion states. PHATE uses diffusion time `t`
+and up to `A` candidate times when automatic selection is enabled. Fixed entropy-search
 iterations are absorbed in t-SNE's bound. Precomputed inputs omit feature-distance
 construction. Transform costs are separate from fit; these are operation/storage
 bounds, not measured runtimes. In particular, dense neighbor searches fully sort
@@ -30,15 +31,15 @@ each row and dense covariance diagnostics can require cubic feature-space work.
 <div class="landing-grid family-grid">
   <a class="landing-card" href="methods/linear.html">
     <h2>Linear</h2>
-    <p>Twelve projections, latent-variable models, supervised reductions, and a feature selector.</p>
+    <p>Fourteen projections, latent-variable models, supervised reductions, and feature selectors.</p>
   </a>
   <a class="landing-card" href="methods/nonlinear.html">
     <h2>Nonlinear</h2>
-    <p>Twelve distance, kernel, graph, stress, diffusion, and stochastic embeddings.</p>
+    <p>Fourteen distance, kernel, graph, stress, diffusion, and stochastic embeddings.</p>
   </a>
   <a class="landing-card" href="methods/estimation.html">
     <h2>Dimension estimation</h2>
-    <p>Six estimators for intrinsic dimension from distances, neighborhoods, and concentration.</p>
+    <p>Seven estimators for intrinsic dimension from distances, neighborhoods, and concentration.</p>
   </a>
 </div>
 

@@ -19,7 +19,9 @@
   row permutation.
 - **Failure policy:** reject duplicates/numerically zero pair distances,
   non-increasing radii, saturated scale intervals, or a nonpositive fitted slope.
-  Pair-distance ties otherwise remain in the strict empirical count.
+  Flat intervals are detected directly from integer pair counts. Log radius
+  ratios relative to the first usable radius preserve small scale differences
+  during fitting. Pair-distance ties remain in the strict empirical count.
 - **Advertised regime:** a scale interval displaying approximately power-law
   correlation-integral growth. Multiple scaling regimes require separate fits.
 - **Complexity:** `O(n^2(p + log n) + B n^2)` time and `O(np + n^2)` peak memory;

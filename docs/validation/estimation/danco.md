@@ -25,9 +25,11 @@
   concentration.
 - **Numerical convention:** the exact `eta=1` angular boundary has infinite von
   Mises concentration and is rejected; it is never clipped to a large finite
-  surrogate. The high-concentration expression is algebraically factored to
-  avoid cancellation for admissible `eta<1`, and scaled Bessel functions avoid
-  overflow.
+  surrogate. The high-concentration expression is algebraically factored using the circular variance
+  identity `1-eta^2 = Var(cos(theta)) + Var(sin(theta))` about a common
+  angular reference. Half-angle chord lengths retain small directional
+  differences. Scaled Bessel functions and the large-concentration expansion
+  of `1-I1/I0` avoid overflow and cancellation in the KL divergence.
 - **Output:** integer-valued float `dimension_`, all data and calibration
   parameters, per-candidate divergences, optimizer evaluations, and a boundary
   warning where applicable.

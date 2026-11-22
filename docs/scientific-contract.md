@@ -40,6 +40,12 @@ Nyström or pivot extension. Transductive estimators intentionally have no
 Release audits run against the installed wheel. Their JSON records artifact
 hashes, commit and dirty state, the complete installed dependency environment,
 platform and thread-pool/BLAS configuration, estimator parameters, seeds, input
-hashes, diagnostics, and finite-output checks. Dimension-estimation gates span
+hashes, diagnostics, and finite-output checks. For the original six dimension estimators, the gates span
 prespecified flat dimensions and sample sizes, additive noise, a sphere, and a
 curved manifold; missing scenarios, methods, or replicates fail closed.
+
+
+Local-dimension methods also report estimates in observation order. Levina–Bickel
+and Tight Local Estimation expose the matrix `local_dimensions_by_k_` with one
+column per entry in `k_values_`. Their ledgers define the aggregation and
+validity conditions for each neighborhood.

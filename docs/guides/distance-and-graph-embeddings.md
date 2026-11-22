@@ -71,3 +71,36 @@ Read the cards for [Classical MDS](../examples/classical_mds.md),
 [Diffusion Map](../examples/diffusion_map.md), and
 [LTSA](../examples/local_tangent_space_alignment.md). Metric and nonmetric
 stress objectives are treated in the next guide.
+
+## Fitting a coordinate system on landmarks
+
+[Landmark MDS](../examples/landmark_mds.md) scales distances among a subset of
+training points. [Landmark Isomap](../examples/landmark_isomap.md) uses
+shortest paths to those landmarks on the fitted neighbor graph. Both can embed
+a new point in the fitted coordinates. Representative landmarks matter because
+their geometry determines the retained directions
+{cite:p}`desilva2004landmark,desilva2002global,bengio2003extensions`.
+
+```{code-cell} ipython3
+from believe14.neighbors import build_neighbor_graph
+from believe14.nonlinear import LandmarkIsomap, LandmarkMDS
+
+landmarks = np.linspace(0, len(X) - 1, 12, dtype=int)
+graph = build_neighbor_graph(X, n_neighbors=6)
+direct = LandmarkMDS(2, landmark_indices=landmarks).fit(X)
+geodesic = LandmarkIsomap(
+    2, n_neighbors=6, landmark_indices=landmarks
+).fit(X, neighbors=graph)
+
+query = (X[13:14] + X[14:15]) / 2
+print(direct.transform(query), geodesic.transform(query))
+assert geodesic.landmark_distances_.shape == (len(X), len(landmarks))
+```
+
+Specify `landmark_indices` to use a designed sample. Alternatively,
+`n_landmarks` selects that many evenly spaced row indices. With neither supplied,
+the default count is the ceiling of the square root of the training size,
+raised to at least one more than the requested dimension. This deterministic
+selection depends on row order. For Landmark Isomap each query attaches to
+training points independently, so embedding a batch preserves the coordinates
+obtained for each query alone.

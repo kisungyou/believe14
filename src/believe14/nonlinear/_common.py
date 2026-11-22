@@ -135,41 +135,50 @@ def smacof(
     _, embedding = stable_center(np.asarray(initial, dtype=np.float64))
     embedding /= distance_scale
     previous = stress(scaled_distances, embedding)
-    zero_tolerance = np.finfo(np.float64).eps * 100.0
+    # Roundoff in an exact embedding contributes squared distance residuals.
+    # A direct precision floor handles zero optimum stress.
+    exact_fit_floor = (8 * np.finfo(float).eps) ** 2 * float(
+        np.sum(np.triu(scaled_distances, k=1) ** 2)
+    )
     converged = False
     relative_change = np.inf
 
     from believe14._core.distances import pairwise_distances
 
     for _iteration in range(1, int(max_iter) + 1):
+        if previous == 0.0:
+            converged = True
+            relative_change = 0.0
+            _iteration -= 1
+            break
         embedded_distances = pairwise_distances(embedding)
-        invalid = (embedded_distances <= zero_tolerance) & (
-            scaled_distances > zero_tolerance
-        )
-        np.fill_diagonal(invalid, False)
-        if np.any(invalid):
+        coincident = embedded_distances == 0.0
+        if np.any(coincident & (scaled_distances > 0.0)):
             raise FloatingPointError(
                 "SMACOF encountered coincident embedded points with a positive "
                 "target dissimilarity; choose a nondegenerate initialization."
             )
-        ratios = np.zeros_like(scaled_distances)
-        mask = embedded_distances > zero_tolerance
-        ratios[mask] = scaled_distances[mask] / embedded_distances[mask]
-        np.fill_diagonal(ratios, 0.0)
-        majorizer = -ratios
-        majorizer[np.diag_indices_from(majorizer)] = -np.sum(
-            majorizer, axis=1, dtype=np.float64
-        )
-        updated = majorizer @ embedding / distances.shape[0]
+        # Evaluate B(Z)Z directly as a sum of target lengths times unit
+        # directions. This avoids huge intermediate coefficients and loss
+        # through subtraction of nearly equal majorizer terms.
+        updated = np.empty_like(embedding)
+        for i in range(len(embedding)):
+            unit = np.divide(
+                embedding[i] - embedding,
+                embedded_distances[i, :, None],
+                out=np.zeros_like(embedding),
+                where=~coincident[i, :, None],
+            )
+            updated[i] = (scaled_distances[i] @ unit) / len(embedding)
         _, updated = stable_center(updated)
         current = stress(scaled_distances, updated)
         monotonic_tolerance = 1e3 * np.finfo(np.float64).eps * max(1.0, abs(previous))
         if current > previous + monotonic_tolerance:
             raise FloatingPointError("SMACOF stress increased beyond roundoff.")
-        relative_change = abs(previous - current) / max(1.0, abs(previous))
+        relative_change = abs(previous - current) / previous if previous > 0 else 0.0
         embedding = updated
         previous = current
-        if relative_change <= tolerance:
+        if relative_change <= tolerance or current <= exact_fit_floor:
             converged = True
             break
 

@@ -52,7 +52,7 @@ def test_prespecified_dimension_scenarios_pass_distributional_gates() -> None:
 @pytest.mark.research
 def test_complete_catalog_audit_runs_public_calls() -> None:
     records = _catalog_audit(1701)
-    assert len(records) == 30
+    assert len(records) == 35
     for record in records.values():
         assert record["converged"] is True  # type: ignore[index]
         assert record.get("output_finite", True) is True  # type: ignore[union-attr]

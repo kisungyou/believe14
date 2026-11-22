@@ -7,7 +7,8 @@
   weights equal to one. Each Guttman update is centered and must not increase stress
   beyond a scale-aware roundoff allowance.
 - **Conventions:** initialization is explicitly `classical` or local-Generator
-  `random`; default is classical. Convergence is relative raw-stress change. Exhausting
+  `random`; default is classical. Convergence uses relative raw-stress change, with a separate squared-roundoff
+  floor for exact embeddings. Exhausting
   `max_iter` is recorded as non-convergence. Coincident fitted points paired with a
   positive target distance are rejected rather than divided by an epsilon.
 - **Evidence:** the reported objective is recomputed literally from pair distances;

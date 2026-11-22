@@ -10,6 +10,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy import linalg, optimize
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.utils import Tags
 from sklearn.utils.validation import check_is_fitted
 
 from believe14._core.diagnostics import diagnostics
@@ -34,6 +35,11 @@ from ._common import (
 
 class ClassicalMDS(BaseEstimator):
     """Classical metric scaling by double centering squared dissimilarities."""
+
+    def __sklearn_tags__(self) -> Tags:
+        tags = super().__sklearn_tags__()
+        tags.input_tags.pairwise = self.dissimilarity == "precomputed"
+        return tags
 
     def __init__(
         self,
@@ -91,6 +97,11 @@ class ClassicalMDS(BaseEstimator):
 
 class MetricMDS(BaseEstimator):
     """Metric MDS minimizing complete unweighted raw stress with SMACOF."""
+
+    def __sklearn_tags__(self) -> Tags:
+        tags = super().__sklearn_tags__()
+        tags.input_tags.pairwise = self.dissimilarity == "precomputed"
+        return tags
 
     def __init__(
         self,
@@ -168,6 +179,11 @@ class MetricMDS(BaseEstimator):
 
 class SammonMapping(BaseEstimator):
     """Sammon mapping with the paper's normalized inverse-distance stress."""
+
+    def __sklearn_tags__(self) -> Tags:
+        tags = super().__sklearn_tags__()
+        tags.input_tags.pairwise = self.dissimilarity == "precomputed"
+        return tags
 
     def __init__(
         self,
@@ -314,6 +330,11 @@ class SammonMapping(BaseEstimator):
 
 class FastMap(TransformerMixin, BaseEstimator):
     """FastMap using deterministic farthest-pivot selection."""
+
+    def __sklearn_tags__(self) -> Tags:
+        tags = super().__sklearn_tags__()
+        tags.input_tags.pairwise = self.dissimilarity == "precomputed"
+        return tags
 
     def __init__(
         self,

@@ -20,7 +20,6 @@ def pairwise_squared_distances(
         raise FloatingPointError("Squared Euclidean distances underflow float64.")
     result = np.maximum(result, 0.0)
     if Y is None:
-        result = result * 0.5 + result.T * 0.5
         np.fill_diagonal(result, 0.0)
     return np.asarray(result, dtype=np.float64)
 
@@ -68,7 +67,6 @@ def pairwise_scaled_squared_distances(
         result[row, high] = np.inf
         result[row, finite] = np.exp(log_values[finite])
     if Y is None:
-        result = result * 0.5 + result.T * 0.5
         np.fill_diagonal(result, 0.0)
     return np.asarray(result, dtype=np.float64)
 
@@ -108,7 +106,6 @@ def pairwise_distances(
     if np.any(~np.isfinite(result)):
         raise FloatingPointError("Euclidean distances overflow float64.")
     if Y is None:
-        result = result * 0.5 + result.T * 0.5
         np.fill_diagonal(result, 0.0)
     return np.asarray(result, dtype=np.float64)
 

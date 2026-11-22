@@ -241,7 +241,7 @@ def test_documentation_hierarchy_is_complete_and_canonical() -> None:
 
 def test_method_card_metadata_exactly_covers_the_registry() -> None:
     cards = sorted((DOCS / "examples").glob("*.md"))
-    assert len(cards) == 30
+    assert len(cards) == 35
     observed: dict[str, tuple[str, Path]] = {}
     for path in cards:
         metadata = _metadata(path)

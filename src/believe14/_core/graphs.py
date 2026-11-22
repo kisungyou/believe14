@@ -10,6 +10,8 @@ from numpy.typing import NDArray
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components, shortest_path
 
+from believe14.neighbors import ExactNeighborGraph
+
 from .distances import exact_neighbors, scaled_squares
 
 
@@ -26,11 +28,16 @@ def neighbor_graph(
     n_neighbors: int,
     weighting: Literal["binary", "heat"] = "binary",
     gamma: float | None = None,
+    neighbors: ExactNeighborGraph | None = None,
     symmetrize: Literal["union", "mutual", "mean"] = "union",
 ) -> NeighborGraph:
     """Build a deterministic exact k-neighbor graph."""
 
-    neighbor_distances, indices = exact_neighbors(X, n_neighbors)
+    neighbor_distances, indices = (
+        exact_neighbors(X, n_neighbors)
+        if neighbors is None
+        else neighbors.query(X, n_neighbors)
+    )
     n_samples = X.shape[0]
     directed_distances = np.full((n_samples, n_samples), np.inf, dtype=np.float64)
     directed_weights = np.zeros((n_samples, n_samples), dtype=np.float64)

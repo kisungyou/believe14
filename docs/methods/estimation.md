@@ -12,6 +12,7 @@ estimator defines them.
   <a class="method-card" href="../examples/u_statistic_dimension.html"><span class="method-card-title">UStatisticDimension</span><span class="method-card-description">A convergence-rate estimate built from U-statistics.</span></a>
   <a class="method-card" href="../examples/mi_ndml.html"><span class="method-card-title">MiNDML</span><span class="method-card-description">Minimum-neighbor-distance maximum likelihood.</span></a>
   <a class="method-card" href="../examples/danco.html"><span class="method-card-title">DANCo</span><span class="method-card-description">Angle-and-norm concentration with an explicit one-dimensional limit.</span></a>
+  <a class="method-card" href="../examples/tight_local_estimator.html"><span class="method-card-title">TightLocalEstimator</span><span class="method-card-description">Estimate local dimension in each neighborhood using reflected distances.</span></a>
 </div>
 
 ```{toctree}
@@ -24,4 +25,5 @@ estimator defines them.
 ../examples/u_statistic_dimension
 ../examples/mi_ndml
 ../examples/danco
+../examples/tight_local_estimator
 ```

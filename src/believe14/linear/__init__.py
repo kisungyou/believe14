@@ -5,6 +5,8 @@ from ._inverse_regression import (
     SlicedAverageVarianceEstimation,
     SlicedInverseRegression,
 )
+from ._laplacian_score import LaplacianScore
+from ._nca import NeighborhoodComponentsAnalysis
 from ._pca import PCA, GaussianRandomProjection
 from ._probabilistic import FactorAnalysis, ProbabilisticPCA
 from ._selection import FisherScore
@@ -21,7 +23,9 @@ __all__ = [
     "FastICA",
     "FisherScore",
     "GaussianRandomProjection",
+    "LaplacianScore",
     "LinearDiscriminantAnalysis",
+    "NeighborhoodComponentsAnalysis",
     "PLSRegression",
     "ProbabilisticPCA",
     "SlicedAverageVarianceEstimation",

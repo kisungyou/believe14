@@ -1,6 +1,6 @@
 # Linear methods
 
-The linear family contains twelve estimators for unsupervised latent
+The linear family contains fourteen estimators for unsupervised latent
 representations, supervised or paired projections, inverse regression, and
 feature selection. Open a card for its assumptions, fitted attributes,
 diagnostics, limitations, citation, and executable example.
@@ -18,6 +18,8 @@ diagnostics, limitations, citation, and executable example.
   <a class="method-card" href="../examples/sliced_inverse_regression.html"><span class="method-card-title">SlicedInverseRegression</span><span class="method-card-description">Response-sliced inverse-regression directions.</span></a>
   <a class="method-card" href="../examples/sliced_average_variance_estimation.html"><span class="method-card-title">SlicedAverageVarianceEstimation</span><span class="method-card-description">Conditional-variance directions beyond inverse means.</span></a>
   <a class="method-card" href="../examples/fisher_score.html"><span class="method-card-title">FisherScore</span><span class="method-card-description">Sample-weighted multiclass feature ranking and selection.</span></a>
+  <a class="method-card" href="../examples/laplacian_score.html"><span class="method-card-title">LaplacianScore</span><span class="method-card-description">Select features with small variation along neighborhood edges.</span></a>
+  <a class="method-card" href="../examples/neighborhood_components_analysis.html"><span class="method-card-title">NeighborhoodComponentsAnalysis</span><span class="method-card-description">Learn a linear projection for stochastic nearest-neighbor classification.</span></a>
 </div>
 
 ```{toctree}
@@ -36,4 +38,6 @@ diagnostics, limitations, citation, and executable example.
 ../examples/sliced_inverse_regression
 ../examples/sliced_average_variance_estimation
 ../examples/fisher_score
+../examples/laplacian_score
+../examples/neighborhood_components_analysis
 ```

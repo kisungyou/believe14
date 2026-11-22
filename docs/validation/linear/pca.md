@@ -9,6 +9,10 @@
   Inverse transformation restores the fitted reference and mean offset with
   compensated addition, preserving representable variation when their combined
   public `mean_` would round it away. Truly unrepresentable outputs fail.
+- Column means use exact binary accumulation followed by a leading float and
+  its rounded residual. Fitting, projection and reconstruction use that same
+  two-part mean, preserving small queries and retaining accuracy across columns
+  with very different units.
 - Equivalence: compare loading projectors, not signs or bases inside repeated
   singular-value blocks.
 - Evidence: literal NumPy SVD, covariance identity under whitening,

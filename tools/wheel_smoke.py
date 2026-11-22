@@ -8,9 +8,11 @@ from pathlib import Path
 import numpy as np
 
 import believe14
-from believe14.estimation import TwoNN
+from believe14.estimation import TightLocalEstimator, TwoNN
 from believe14.linear import PCA
-from believe14.nonlinear import ClassicalMDS
+from believe14.metrics import continuity, trustworthiness
+from believe14.neighbors import build_neighbor_graph
+from believe14.nonlinear import ClassicalMDS, LandmarkIsomap
 from believe14.registry import list_estimators
 
 
@@ -37,7 +39,7 @@ def main() -> None:
     )
 
     infos = list_estimators()
-    _require(len(infos) == 30, "Wheel does not expose exactly 30 estimators.")
+    _require(len(infos) == 35, "Wheel does not expose exactly 35 estimators.")
     _require(
         {info.family for info in infos} == {"linear", "nonlinear", "estimation"},
         "Wheel family inventory is incomplete.",
@@ -67,6 +69,14 @@ def main() -> None:
         np.isfinite(fitted[2].dimension_),
         "Installed TwoNN produced a non-finite estimate.",
     )
+    graph = build_neighbor_graph(X, n_neighbors=12)
+    landmark = LandmarkIsomap(2, n_neighbors=10).fit(X, neighbors=graph)
+    _require(landmark.transform(X[:1]).shape == (1, 2), "Invalid landmark transform.")
+    local = TightLocalEstimator(n_neighbors=8).fit(X, neighbors=graph)
+    _require(np.isfinite(local.local_dimensions_).all(), "Nonfinite local estimates.")
+    for measure in (trustworthiness, continuity):
+        value = measure(X, landmark.embedding_, n_neighbors=5)
+        _require(0.0 <= value <= 1.0, f"Invalid {measure.__name__} score.")
     for estimator in fitted:
         _require(
             estimator.diagnostics_.converged,
