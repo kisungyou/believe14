@@ -56,7 +56,7 @@ PLACEHOLDER = re.compile(
 
 
 def test_static_version_is_numeric() -> None:
-    assert believe14.__version__ == "0.1.0"
+    assert believe14.__version__ == "0.2.0"
     assert "dev" not in believe14.__version__
 
 
@@ -77,7 +77,7 @@ def test_release_version_agrees_across_artifacts_and_tag() -> None:
         project_version,
         manifest_version,
         citation_match.group(1),
-    } == {"0.1.0"}
+    } == {"0.2.0"}
 
     if os.environ.get("GITHUB_REF_TYPE") == "tag":
         assert os.environ.get("GITHUB_REF_NAME") == f"v{project_version}"
@@ -104,7 +104,7 @@ def test_manifest_registry_exports_and_ledgers_agree() -> None:
     with manifest_path.open("rb") as stream:
         manifest = tomllib.load(stream)
     records = manifest["methods"]
-    assert manifest["release"] == "0.1.0"
+    assert manifest["release"] == "0.2.0"
     assert len(records) == 35
     assert len({record["name"] for record in records}) == 35
     assert len({record["ledger"] for record in records}) == 35

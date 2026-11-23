@@ -33,7 +33,7 @@ class DANCo(BaseEstimator):
     generator.  Equation (13)'s sum of the norm and von Mises KL divergences
     chooses the dimension.  Equal-distance neighbors are ordered stably by row
     index; a tie between the first and ``(k+1)``-st radii is rejected because the
-    norm likelihood is then singular.  The 0.1.0 angular model is defined only
+    norm likelihood is then singular.  The angular model is defined only
     for intrinsic dimensions of at least two; collinear data are rejected.
 
     References
@@ -84,7 +84,7 @@ class DANCo(BaseEstimator):
         if rank < 2:
             raise ValueError(
                 "DANCo's angular statistic is degenerate for collinear data; "
-                "believe14 0.1.0 supports intrinsic dimensions of at least 2."
+                "DANCo supports intrinsic dimensions of at least 2."
             )
         ratios, indices, radii = normalized_minimum_distances(
             Xv, n_neighbors, neighbors=neighbors

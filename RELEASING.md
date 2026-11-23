@@ -17,7 +17,7 @@ TestPyPI, uploaded unchanged to PyPI, and attached to the GitHub Release.
    Python 3.12–3.14 on Linux, macOS, and Windows and deploys documentation only
    after every required job passes.
 
-## Prepare 0.1.0
+## Prepare the release
 
 Use the locked development environment containing the `dev` and `docs` extras
 plus Twine. The local release command intentionally fails when the Git tree is
@@ -53,10 +53,11 @@ annotated tag whose name exactly matches `v` plus the numeric project version.
 git switch main
 git pull --ff-only
 make release-check
-git tag -a v0.1.0 -m "believe14 0.1.0"
+tag=$(.venv/bin/python -m scripts.release_info --field tag)
+git tag -a "$tag" -m "believe14 $tag"
 make verify-tag
 git push origin main
-git push origin v0.1.0
+git push origin "$tag"
 ```
 
 The tag starts the publish workflow. That workflow:
@@ -78,5 +79,8 @@ as a failure rather than silently skipped.
 ## After publication
 
 Verify the PyPI project page, the GitHub Release checksums, and the deployed
-documentation. Installation compatibility or correctness regressions go into
-0.1.1; new methods belong to the planned 0.2.0 or later catalog expansions.
+documentation. Install the released version from PyPI in a fresh virtual
+environment. From the release checkout, use that environment's Python to run
+`python -I scripts/installed_smoke.py --expected-version X.Y.Z`, substituting
+the released version. The smoke test checks the installed estimator registry
+and exercises representative fits.

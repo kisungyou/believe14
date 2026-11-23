@@ -69,7 +69,7 @@ not invent `predict`, `score`, or `transform`.
 ```{admonition} DANCo boundary
 :class: warning
 DANCo's angular statistic is degenerate for intrinsically one-dimensional or
-collinear data. Version 0.1.0 rejects that regime explicitly and searches
+collinear data. DANCo rejects that regime explicitly and searches
 candidate dimensions starting at two.
 ```
 

@@ -32,7 +32,7 @@ assert not hasattr(model, "transform")  # alignment was solved only for fitted v
 
 `alignment_matrix_`, `eigenvalues_`, and `embedding_` expose the global solve.
 Diagnostics check its eigensystem. Rank-deficient tangent neighborhoods and a
-disconnected graph are explicit failures. There is no cited LTSA extension in
-0.1.0, so `transform` is intentionally absent.
+disconnected graph are explicit failures. LTSA is transductive and provides
+coordinates for the fitted observations.
 
 Primary reference: {cite:p}`zhang2004`.

@@ -14,26 +14,20 @@ html_theme.sidebar_secondary.remove: true
 
 `believe14` provides paper-audited dimensionality-reduction and
 intrinsic-dimension estimators with scikit-learn-style interfaces. Version
-0.1.0 requires Python 3.12 or newer and operates on finite, dense, real
+0.2.0 requires Python 3.12 or newer and operates on finite, dense, real
 `float64` arrays with observations in rows.
 
 ## Installation
 
-Install the published package from PyPI:
+Install the release used in these examples from PyPI.
 
 ```console
-python -m pip install believe14
+python -m pip install "believe14==0.2.0"
 ```
 
-This website includes the unreleased changes on `main`. To use those changes,
-install the current development version from the repository:
-
-```console
-python -m pip install "believe14 @ git+https://github.com/kisungyou/believe14.git@main"
-```
-
-See the [changelog](../changelog.md) for the distinction between unreleased
-corrections and published versions.
+Version 0.2.0 includes 14 linear methods, 14 nonlinear methods and seven
+intrinsic-dimension estimators. See the [changelog](../changelog.md) for the
+new methods and numerical corrections.
 
 ## A complete PCA workflow
 

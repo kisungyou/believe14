@@ -28,7 +28,7 @@ def main() -> None:
         not module_path.is_relative_to(project_root),
         f"Smoke test imported the source checkout instead of the wheel: {module_path}",
     )
-    _require(believe14.__version__ == "0.1.0", "Unexpected installed version.")
+    _require(believe14.__version__ == "0.2.0", "Unexpected installed version.")
 
     installed = distribution("believe14")
     installed_files = {str(path) for path in installed.files or ()}

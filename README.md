@@ -1,7 +1,7 @@
 # believe14
 
 `believe14` is a paper-first Python library for dimensionality reduction and
-intrinsic-dimension estimation. The development version contains 35 independently
+intrinsic-dimension estimation. Version 0.2.0 contains 35 independently
 implemented methods organized into three public families:
 `believe14.linear`, `believe14.nonlinear`, and `believe14.estimation`.
 
@@ -21,9 +21,8 @@ primitives; scikit-learn provides estimator interoperability and validation.
 python -m pip install believe14
 ```
 
-The command above installs the published release. To use the 35-method
-development version from this checkout, run `python -m pip install .` in the
-repository directory. Python 3.12 or newer is required.
+Python 3.12 or newer is required. To install from a local checkout, run
+`python -m pip install .` in the repository directory.
 
 ## Example
 
@@ -39,7 +38,7 @@ normative equations, numerical conventions, and independent evidence.
 
 ## Documentation and method examples
 
-The documentation contains an executable method card for every public class,
+The [documentation](https://www.kisungyou.com/believe14/) contains an executable method card for every public class,
 six task-oriented guides, and a registry-generated coverage table. Examples use
 small deterministic datasets and run without network access. They distinguish
 inductive reducers with a justified `transform` from transductive embeddings
@@ -79,10 +78,9 @@ distinction between historical panel outcomes and the current decision.
 
 ## Release trajectory
 
-- **0.1.1:** correctness, packaging, and documentation fixes only.
-- **0.2.0:** supervised and feature-selection expansion.
-- **0.3.0:** nonlinear and landmark-method expansion.
-- **0.4.0:** intrinsic-dimension estimation expansion.
+Version 0.2.0 adds two linear methods, two landmark embeddings and a local
+intrinsic-dimension estimator. The roadmap targets further nonlinear and
+landmark methods in 0.3.0 and dimension estimation in 0.4.0.
 
 New methods must land as complete vertical slices: paper ledger, literal oracle,
 implementation, normal tests, method card, and guide integration. Performance

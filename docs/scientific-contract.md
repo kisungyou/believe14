@@ -9,7 +9,7 @@ comparison; matching legacy output is not a correctness criterion.
 
 ## Inputs and failures
 
-Observations occupy rows. Version 0.1.0 accepts finite, dense, real-valued
+Observations occupy rows. Version 0.2.0 accepts finite, dense, real-valued
 `float64` data and runs on CPU. Invalid parameter domains, undefined
 statistics, disconnected graphs, material indefiniteness, and failed solver
 convergence are reported explicitly. Implementations do not repair scientific

@@ -77,7 +77,7 @@ def check_wheel(path: Path, info: ReleaseInfo, root: Path) -> None:
         _check_metadata(_metadata(archive.read(metadata_names[0])), info, root)
         wheel_metadata = _metadata(archive.read(wheel_names[0]))
         if wheel_metadata.get("Root-Is-Purelib") != "true":
-            raise DistributionError("0.1.0 must remain a pure-Python wheel.")
+            raise DistributionError("The distribution must be a pure-Python wheel.")
         if "py3-none-any" not in wheel_metadata.get_all("Tag", []):
             raise DistributionError("Wheel must advertise the py3-none-any tag.")
         required_suffixes = (

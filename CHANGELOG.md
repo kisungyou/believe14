@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [0.2.0] — 2026-11-22
 
 - Add Laplacian Score, Neighborhood Components Analysis, Landmark MDS,
   Landmark Isomap and the Tight Local Estimator, with executable examples and
@@ -13,7 +13,6 @@
   relative SMACOF stopping, PHATE bandwidths, and subnormal neighbor distances.
   Address correlation-integral plateaus and log-radius scaling, DANCo angular
   concentration, and tied radii in the one-neighbor MiND likelihood.
-
 - Initialize PLS components from the dominant residual cross-covariance direction
   so target ordering or a subdominant initial direction cannot produce a false
   failure or an incorrect converged component.
@@ -57,4 +56,5 @@
 - Added an immutable-artifact release path through TestPyPI, PyPI, GitHub
   Releases, and GitHub Pages using trusted publishing.
 
+[0.2.0]: https://github.com/kisungyou/believe14/releases/tag/v0.2.0
 [0.1.0]: https://github.com/kisungyou/believe14/releases/tag/v0.1.0

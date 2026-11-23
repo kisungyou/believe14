@@ -24,10 +24,10 @@ def _git(root: Path, *arguments: str) -> None:
 def test_release_info_is_canonical_and_final() -> None:
     info = load_release_info()
     assert info.name == "believe14"
-    assert info.version == "0.1.0"
-    assert info.tag == "v0.1.0"
-    assert info.wheel == "believe14-0.1.0-py3-none-any.whl"
-    assert info.sdist == "believe14-0.1.0.tar.gz"
+    assert info.version == "0.2.0"
+    assert info.tag == "v0.2.0"
+    assert info.wheel == "believe14-0.2.0-py3-none-any.whl"
+    assert info.sdist == "believe14-0.2.0.tar.gz"
     verify_metadata(project_root(), info)
 
 
@@ -80,7 +80,7 @@ def test_repository_verifier_requires_annotated_clean_tag(tmp_path: Path) -> Non
     _git(tmp_path, "add", "tracked.txt")
     _git(tmp_path, "commit", "-m", "Initial release")
     _git(tmp_path, "remote", "add", "origin", "git@github.com:kisungyou/believe14.git")
-    _git(tmp_path, "tag", "-a", "v0.1.0", "-m", "believe14 0.1.0")
+    _git(tmp_path, "tag", "-a", "v0.2.0", "-m", "believe14 0.2.0")
 
     info = replace(
         load_release_info(), repository="https://github.com/kisungyou/believe14"
@@ -91,7 +91,7 @@ def test_repository_verifier_requires_annotated_clean_tag(tmp_path: Path) -> Non
         check_clean=True,
         check_remote=True,
         require_tag=True,
-        expected_tag="v0.1.0",
+        expected_tag="v0.2.0",
     )
 
     (tmp_path / "untracked.txt").write_text("dirty\n", encoding="utf-8")
@@ -102,7 +102,7 @@ def test_repository_verifier_requires_annotated_clean_tag(tmp_path: Path) -> Non
             check_clean=True,
             check_remote=True,
             require_tag=True,
-            expected_tag="v0.1.0",
+            expected_tag="v0.2.0",
         )
 
 
@@ -113,7 +113,7 @@ def test_repository_verifier_rejects_lightweight_tag(tmp_path: Path) -> None:
     (tmp_path / "tracked.txt").write_text("release\n", encoding="utf-8")
     _git(tmp_path, "add", "tracked.txt")
     _git(tmp_path, "commit", "-m", "Initial release")
-    _git(tmp_path, "tag", "v0.1.0")
+    _git(tmp_path, "tag", "v0.2.0")
 
     with pytest.raises(ReleaseVerificationError, match="annotated tag"):
         verify_repository(
@@ -122,7 +122,7 @@ def test_repository_verifier_rejects_lightweight_tag(tmp_path: Path) -> None:
             check_clean=True,
             check_remote=False,
             require_tag=True,
-            expected_tag="v0.1.0",
+            expected_tag="v0.2.0",
         )
 
 
@@ -139,12 +139,12 @@ def test_forced_tag_refetch_restores_annotated_release_tag(tmp_path: Path) -> No
     (source / "tracked.txt").write_text("release\n", encoding="utf-8")
     _git(source, "add", "tracked.txt")
     _git(source, "commit", "-m", "Initial release")
-    _git(source, "tag", "-a", "v0.1.0", "-m", "believe14 0.1.0")
+    _git(source, "tag", "-a", "v0.2.0", "-m", "believe14 0.2.0")
     _git(source, "remote", "add", "origin", str(origin))
-    _git(source, "push", "origin", "main", "refs/tags/v0.1.0")
+    _git(source, "push", "origin", "main", "refs/tags/v0.2.0")
 
     _git(tmp_path, "clone", "--no-tags", str(origin), str(runner))
-    _git(runner, "tag", "v0.1.0")
+    _git(runner, "tag", "v0.2.0")
     info = load_release_info()
     with pytest.raises(ReleaseVerificationError, match="annotated tag"):
         verify_repository(
@@ -153,7 +153,7 @@ def test_forced_tag_refetch_restores_annotated_release_tag(tmp_path: Path) -> No
             check_clean=True,
             check_remote=False,
             require_tag=True,
-            expected_tag="v0.1.0",
+            expected_tag="v0.2.0",
         )
 
     _git(
@@ -162,7 +162,7 @@ def test_forced_tag_refetch_restores_annotated_release_tag(tmp_path: Path) -> No
         "--force",
         "--no-tags",
         "origin",
-        "refs/tags/v0.1.0:refs/tags/v0.1.0",
+        "refs/tags/v0.2.0:refs/tags/v0.2.0",
     )
     verify_repository(
         runner,
@@ -170,7 +170,7 @@ def test_forced_tag_refetch_restores_annotated_release_tag(tmp_path: Path) -> No
         check_clean=True,
         check_remote=False,
         require_tag=True,
-        expected_tag="v0.1.0",
+        expected_tag="v0.2.0",
     )
 
 
@@ -194,7 +194,7 @@ def test_workflows_discover_artifact_names_and_cover_release_matrix() -> None:
     nightly = (workflows / "nightly.yml").read_text(encoding="utf-8")
 
     for contents in (ci, publish, nightly):
-        assert "believe14-0.1.0" not in contents
+        assert "believe14-0.2.0" not in contents
         assert "scripts.release_info" in contents
         assert "scripts/installed_smoke.py" in contents
 

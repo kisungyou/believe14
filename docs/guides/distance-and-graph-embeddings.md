@@ -59,7 +59,7 @@ for model in models:
 ```
 
 The missing `transform` attributes above are intentional. Classical MDS,
-Isomap, LLE, Laplacian Eigenmaps, and LTSA are transductive in 0.1.0. FastMap
+Isomap, LLE, Laplacian Eigenmaps, and LTSA are transductive. FastMap
 uses its pivots, Kernel PCA uses Nyström kernel centering, and Diffusion Map
 uses its cited Nyström transition rule. Supplying precomputed distances or a
 kernel does not create a new-data rule by itself.

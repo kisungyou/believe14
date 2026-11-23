@@ -7,12 +7,10 @@ html_theme.sidebar_secondary.remove: true
 `believe14` is a paper-first Python library for dimensionality reduction and
 intrinsic-dimension estimation. Its 35 public estimators share explicit
 numerical diagnostics, deterministic examples, and validation ledgers that
-freeze the mathematical conventions used by this development version.
+record the mathematical conventions used by version 0.2.0.
 
-This website follows the development branch `main`, including the unreleased
-changes listed in the [changelog](changelog.md). The
-[installation guide](getting_started/index.md) explains how to use the current
-development version.
+See the [installation guide](getting_started/index.md) to install the package
+from PyPI and the [changelog](changelog.md) for the changes in this release.
 
 All 35 methods carry validated status for their recorded tests and documented
 scope. `UStatisticDimension` passed a prospective 4,500-fit study on nine specified
@@ -41,7 +39,7 @@ data; its earlier failed panel and higher-dimensional limitations remain in the
 
 ```{admonition} Scientific scope
 :class: note
-Version 0.1.0 accepts finite dense real `float64` data on CPU. Methods reject
+Version 0.2.0 accepts finite dense real `float64` data on CPU. Methods reject
 undefined statistics, disconnected graphs, and false convergence rather than
 silently repairing scientific inputs or changing algorithms.
 ```
